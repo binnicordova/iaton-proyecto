@@ -1,4 +1,6 @@
 {
   "functionId": "1546f30d-a659-4197-a52a-af7696f0fca0",
-  "workflows": {}
+  "workflows": {
+    "S2C": "5006e29f-b7f5-4667-9a0f-c6808da5a632"
+  }
 }
