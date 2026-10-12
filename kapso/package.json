@@ -1,0 +1,9 @@
+{
+  "name": "brasper-kapso",
+  "private": true,
+  "description": "Función simulada y definiciones de workflows de Kapso para el flujo de WhatsApp de BrasPer",
+  "scripts": {
+    "test": "node --test",
+    "emit": "node build/emit.js"
+  }
+}
