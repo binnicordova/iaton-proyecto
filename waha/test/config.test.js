@@ -40,3 +40,9 @@ test('enmascarar deja solo los últimos 4 dígitos y soloDigitos limpia el id', 
   assert.equal(soloDigitos('51944686794@c.us'), '51944686794');
   assert.equal(soloDigitos('+51 944-686-794'), '51944686794');
 });
+
+test('COMPROBANTE_ENTREGA vale whatsapp por defecto, acepta ninguno y rechaza otros valores', () => {
+  assert.equal(cargarConfig(BASE).comprobanteEntrega, 'whatsapp');
+  assert.equal(cargarConfig({ ...BASE, COMPROBANTE_ENTREGA: 'ninguno' }).comprobanteEntrega, 'ninguno');
+  assert.throws(() => cargarConfig({ ...BASE, COMPROBANTE_ENTREGA: 'correo' }), /whatsapp o ninguno/);
+});

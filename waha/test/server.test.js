@@ -11,7 +11,7 @@ const { firmar } = require('../src/webhook/hmac');
 const { ProveedorFalso } = require('./helpers/proveedor-falso');
 
 const SECRETO = 'secreto-hmac';
-const CONFIG = { hmacSecret: SECRETO, internalKey: 'clave-interna', wahaBaseUrl: 'http://waha:3000', wahaApiKey: 'K', wahaSession: 'demo' };
+const CONFIG = { comprobanteEntrega: 'whatsapp', hmacSecret: SECRETO, internalKey: 'clave-interna', wahaBaseUrl: 'http://waha:3000', wahaApiKey: 'K', wahaSession: 'demo' };
 const fx = (n) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'waha', `${n}.json`), 'utf8'));
 
 function flujos() {
@@ -20,13 +20,14 @@ function flujos() {
   return { W0: w0, E4: e4 };
 }
 
-async function levantar({ fetchImpl } = {}) {
+async function levantar({ fetchImpl, config } = {}) {
   const db = abrirDb(':memory:');
   const almacen = crearAlmacen(db);
   const proveedor = new ProveedorFalso();
   const motor = crearMotor({ flujos: flujos(), almacen, proveedor, llamarFuncion: async () => ({ vars: {} }), extraer: async () => ({}) });
-  const { servidor, inactivo } = crearServidor({ config: CONFIG, motor, almacen, proveedor, fetchImpl });
+  const { servidor, inactivo } = crearServidor({ config: { ...CONFIG, ...config }, motor, almacen, proveedor, fetchImpl });
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
+  servidor.unref(); // si una prueba falla antes de cerrar, el proceso no se queda colgado
   const base = `http://127.0.0.1:${servidor.address().port}`;
   const enviar = async (evento, { secreto = SECRETO, firma } = {}) => {
     const cuerpo = typeof evento === 'string' ? evento : JSON.stringify(evento);
@@ -126,7 +127,7 @@ test('/internal/avisos exige la clave interna, valida los datos y arranca E4', a
   assert.equal((await post({ telefono: '51999999999', operacion_id: 'malo' }, 'clave-interna')).status, 400);
   const ok = await post({ telefono: '51999999999', operacion_id: 'BR-0001' }, 'clave-interna');
   assert.equal(ok.status, 200);
-  assert.deepEqual(await ok.json(), { iniciado: true });
+  assert.deepEqual(await ok.json(), { iniciado: true, comprobante: { enviado: false, motivo: 'sin_operacion' } }); // BR-0001 no existe en el KV de la prueba
   assert.deepEqual(s.proveedor.textos(), ['aviso BR-0001']);
   assert.equal(s.proveedor.enviados[0].chatId, '51999999999@c.us');
   await s.cerrar();
@@ -195,4 +196,53 @@ test('el registro nunca guarda el teléfono completo: ni en chat ni en mensaje_i
   } finally {
     await s.cerrar();
   }
+});
+
+const OP_COMPLETADA = { id: 'BR-0002', phone: '51999999999', estado: 'completada', creada: '2026-10-13T19:03:00.000Z', snap: { moneda_origen: 'BRL', moneda_destino: 'PEN', monto_txt: '500.00' }, proof: {} };
+const avisar = (s, operacion = 'BR-0002') => fetch(`${s.base}/internal/avisos`, { method: 'POST', headers: { 'x-internal-key': 'clave-interna' }, body: JSON.stringify({ telefono: '51999999999', operacion_id: operacion }) });
+
+test('tras el aviso de E4, con la operación completada, envía el PDF del comprobante por el chat', async () => {
+  const s = await levantar();
+  try {
+    await s.almacen.kvEnv().put('op:BR-0002', JSON.stringify(OP_COMPLETADA));
+    const r = await (await avisar(s)).json();
+    assert.equal(r.iniciado, true);
+    assert.equal(r.comprobante.enviado, true);
+    assert.deepEqual(s.proveedor.enviados.map((e) => e.tipo), ['texto', 'documento']); // primero el aviso de E4, después el PDF
+    assert.equal(s.proveedor.enviados[1].nombre, 'comprobante-BR-0002.pdf');
+  } finally { await s.cerrar(); }
+});
+
+test('con COMPROBANTE_ENTREGA=ninguno no se envía el PDF ni se informa del comprobante', async () => {
+  const s = await levantar({ config: { comprobanteEntrega: 'ninguno' } });
+  try {
+    await s.almacen.kvEnv().put('op:BR-0002', JSON.stringify(OP_COMPLETADA));
+    const r = await (await avisar(s)).json();
+    assert.equal(r.comprobante, undefined);
+    assert.deepEqual(s.proveedor.enviados.map((e) => e.tipo), ['texto']);
+  } finally { await s.cerrar(); }
+});
+
+test('si E4 no se inició (cliente ocupado) no se envía el comprobante', async () => {
+  const s = await levantar();
+  try {
+    await s.almacen.kvEnv().put('op:BR-0002', JSON.stringify(OP_COMPLETADA));
+    await s.enviar(fx('message_text')); // el flujo W0 de la prueba termina; se fuerza una espera guardada:
+    s.almacen.guardarEjecucion('51999999999', { telefono: '51999999999', chatId: '51999999999@c.us', pila: [{ flujo: 'W0', nodo: 'eco' }], vars: {}, esperando: null, opciones: null, entrantes: [] });
+    const r = await (await avisar(s)).json();
+    assert.deepEqual(r, { iniciado: false, motivo: 'ocupado' });
+    assert.ok(!s.proveedor.enviados.some((e) => e.tipo === 'documento'));
+  } finally { await s.cerrar(); }
+});
+
+test('un error inesperado al armar el comprobante no rompe el aviso: se informa y se registra', async () => {
+  const s = await levantar();
+  try {
+    await s.almacen.kvEnv().put('op:BR-0002', JSON.stringify(OP_COMPLETADA));
+    s.proveedor.enviarDocumento = async () => { throw new Error('bug inesperado'); };
+    const res = await avisar(s);
+    assert.equal(res.status, 200);
+    assert.deepEqual((await res.json()).comprobante, { enviado: false, motivo: 'error' });
+    assert.equal(s.db.prepare("SELECT COUNT(*) n FROM registro WHERE tipo = 'error_comprobante'").get().n, 1);
+  } finally { await s.cerrar(); }
 });

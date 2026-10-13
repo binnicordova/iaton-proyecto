@@ -124,7 +124,7 @@ function e1() {
   f.text('par_err', 'Esa combinación de monedas no está disponible. Elige otras.');
   f.link('cotiza', 'par_err', 'par_invalido').link('par_err', mo.entrada);
   f.link('cotiza', escalar(f, 'tasas', 'tasas_no_disponibles', { mensaje: MSG_SIN_TASAS }), 'sin_servicio');
-  f.buttons('oferta', '¡Hola! Hoy 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}. Comisión {{vars.comision_txt}} {{vars.moneda_origen}}. Recibirás {{vars.recibe_txt}} {{vars.moneda_destino}}. Tasa asegurada hasta las {{vars.tasa_hasta}}.', [
+  f.buttons('oferta', '¡Hola! Hoy 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}. Comisión {{vars.comision_txt}} {{vars.moneda_origen}}. Recibirás {{vars.recibe_txt}} {{vars.moneda_destino}}. Tasa asegurada hasta las {{vars.tasa_hasta}}', [
     { id: 'continuar', title: 'Continuar' }, { id: 'cambiar_monto', title: 'Cambiar monto' }, { id: 'persona', title: 'Hablar con persona' },
   ]);
   f.cta('web', '¿Prefieres hacerlo desde la web?', 'Abrir formulario web', FORMULARIO_WEB);
@@ -221,7 +221,7 @@ function e3() {
   f.link(tn.ruta, 'cancela', 'cancelar');
 
   // Cuenta de BrasPer y aviso fuera de horario.
-  f.text('instr', 'Transfiere {{vars.total_enviar_txt}} {{vars.moneda_origen}} a:\nTitular: {{vars.brasper_titular}}\nBanco: {{vars.brasper_banco}}\nCuenta: {{vars.brasper_cuenta}}\nUsa la cuenta de {{vars.moneda_origen}}, no otra moneda.\nTasa asegurada hasta las {{vars.tasa_hasta}}.');
+  f.text('instr', 'Transfiere {{vars.total_enviar_txt}} {{vars.moneda_origen}} a:\nTitular: {{vars.brasper_titular}}\nBanco: {{vars.brasper_banco}}\nCuenta: {{vars.brasper_cuenta}}\nUsa la cuenta de {{vars.moneda_origen}}, no otra moneda.\nTasa asegurada hasta las {{vars.tasa_hasta}}');
   f.link('cuenta', 'instr');
   f.api('horario', 'check_hours', { edges: ['abierto', 'cerrado'] });
   f.link('instr', 'horario');
@@ -276,7 +276,7 @@ function e4() {
   f.setvar('plantilla', 'aviso_pendiente', 'plantilla_requerida');
   f.link('ventana', 'plantilla', 'cerrada');
   f.text('verificado', '✅ Pago verificado. Enviamos tu dinero a la cuenta ••{{vars.cuenta_ultimos4}}.');
-  f.text('listo', '¡Listo! Recibiste {{vars.recibe_txt}} {{vars.moneda_destino}}. Te enviamos tu comprobante por correo.');
+  f.text('listo', '¡Listo! Recibiste {{vars.recibe_txt}} {{vars.moneda_destino}}.');
   f.api('cierra', 'complete_operation');
   f.link('ruta', 'verificado', 'verificada').link('verificado', 'listo').link('listo', 'cierra');
   f.link('ruta', escalar(f, 'rech', 'pago_no_validado', { mensaje: 'No pudimos validar tu pago de la operación {{vars.operacion_id}}. Una persona del equipo te contactará.' }), 'rechazada');

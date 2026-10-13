@@ -129,8 +129,18 @@ test('get_rate_quote calcula con datos de demostración y fija 15 minutos de vig
   assert.equal(r.vars.comision_txt, '5.00');
   assert.equal(r.vars.total_enviar_txt, '505.00');
   assert.equal(r.vars.tasa_txt, '0.7');
-  assert.equal(r.vars.tasa_hasta, '10:15');
+  assert.equal(r.vars.tasa_hasta, '10:15 a. m.');
   assert.equal(r.vars.tasa_hasta_iso, '2026-10-12T15:15:00.000Z');
+});
+
+test('la vigencia de la tasa se muestra en 12 horas con a. m. / p. m. (tarde, mediodía y medianoche)', async () => {
+  const { call } = mundo();
+  const edges = ['ok', 'sin_servicio', 'par_invalido'];
+  const hasta = async (ahora) => (await call('get_rate_quote', { vars: COTIZACION, edges, ahora })).vars.tasa_hasta;
+  assert.equal(await hasta('2026-10-12T17:50:00Z'), '1:05 p. m.'); // 12:50 Lima + 15 min
+  assert.equal(await hasta('2026-10-12T16:50:00Z'), '12:05 p. m.'); // mediodía
+  assert.equal(await hasta('2026-10-12T05:10:00Z'), '12:25 a. m.'); // medianoche
+  assert.equal(await hasta('2026-10-12T23:55:00Z'), '7:10 p. m.'); // 18:55 Lima + 15 min
 });
 
 test('get_rate_quote: servicio caído y par inválido no inventan tasa', async () => {

@@ -111,3 +111,25 @@ test('resolverTelefono devuelve null si WAHA no conoce el LID o falla', async ()
     assert.equal(await q.resolverTelefono('155@lid'), null);
   }
 });
+
+test('enviarDocumento manda el archivo en base64 por /api/sendFile con su texto, también en modo texto', async () => {
+  for (const interactivos of ['texto', 'nativo']) {
+    const { p, llamadas } = proveedor([OK], { interactivos });
+    const id = await p.enviarDocumento(CHAT, { nombre: 'comprobante-BR-0002.pdf', mimetype: 'application/pdf', base64: 'JVBERi0=', caption: 'Tu comprobante de la operación BR-0002' });
+    assert.equal(id, 'true_51999@c.us_X');
+    assert.equal(llamadas[0].url, 'http://waha:3000/api/sendFile');
+    assert.deepEqual(llamadas[0].cuerpo, {
+      session: 'demo', chatId: CHAT, caption: 'Tu comprobante de la operación BR-0002',
+      file: { mimetype: 'application/pdf', filename: 'comprobante-BR-0002.pdf', data: 'JVBERi0=' },
+    });
+  }
+});
+
+test('enviarDocumento reintenta 5xx como el resto y su registro no incluye el archivo ni el texto', async () => {
+  const eventos = [];
+  const { p, llamadas } = proveedor([{ status: 502 }, OK], { registrar: (e) => eventos.push(e) });
+  await p.enviarDocumento(CHAT, { nombre: 'a.pdf', mimetype: 'application/pdf', base64: 'SECRETO_BASE64', caption: 'texto privado' });
+  assert.equal(llamadas.length, 2);
+  assert.ok(!JSON.stringify(eventos).includes('SECRETO_BASE64') && !JSON.stringify(eventos).includes('texto privado'));
+  assert.equal(eventos[0].ruta, '/api/sendFile');
+});

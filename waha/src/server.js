@@ -3,6 +3,7 @@ const http = require('node:http');
 const { verificarHmac } = require('./webhook/hmac');
 const { normalizarEvento } = require('./webhook/normalizar');
 const { enmascarar, soloDigitos } = require('./util');
+const { entregarComprobante } = require('./comprobante/entrega');
 
 const LIMITE_CUERPO = 256 * 1024;
 
@@ -95,7 +96,17 @@ function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch })
     try { datos = JSON.parse((await leerCuerpo(req)).toString('utf8')); } catch { return responder(400, { error: 'json inválido' }); }
     if (!/^\d{6,20}$/.test(String(datos.telefono || '')) || !/^BR-\d+$/.test(String(datos.operacion_id || ''))) return responder(400, { error: 'telefono u operacion_id inválidos' });
     const guardado = await kv.get(`chat:${datos.telefono}`, 'json');
-    const r = await motor.iniciar('E4', datos.telefono, guardado || `${datos.telefono}@c.us`, { operacion_id: datos.operacion_id });
+    const chatId = guardado || `${datos.telefono}@c.us`;
+    const r = await motor.iniciar('E4', datos.telefono, chatId, { operacion_id: datos.operacion_id });
+    // Después del aviso de E4, el comprobante en PDF por el mismo chat. Un fallo aquí nunca rompe el aviso.
+    if (r.iniciado && config.comprobanteEntrega === 'whatsapp') {
+      try {
+        r.comprobante = await entregarComprobante({ kv, proveedor, registrar: (e) => almacen.registrar(e), telefono: datos.telefono, chatId, operacionId: datos.operacion_id });
+      } catch (e) {
+        almacen.registrar({ tipo: 'error_comprobante', chat: enmascarar(chatId), detalle: String(e.message).slice(0, 200) });
+        r.comprobante = { enviado: false, motivo: 'error' };
+      }
+    }
     return responder(200, r);
   }
 

@@ -7,6 +7,7 @@ const { cargarFlujos } = require('../src/flujos');
 const { crearLlamadorFuncion } = require('../src/puente-api');
 const { ProveedorFalso } = require('./helpers/proveedor-falso');
 const { ErrorEnvio } = require('../src/provider/waha');
+const { entregarComprobante } = require('../src/comprobante/entrega');
 const { msg, AHORA } = require('./helpers/mundo');
 
 const T = '51944686794';
@@ -32,7 +33,7 @@ test('PARIDAD: operación completa con cuenta guardada = 13 mensajes salientes y
 
   await m.decir(PRIMERO);
   assert.equal(e[0].tipo, 'botones');
-  assert.match(e[0].texto, /Hoy 1 BRL = 0\.7 PEN\. Comisión 5\.00 BRL\. Recibirás 350\.00 PEN\. Tasa asegurada hasta las \d\d:\d\d\./);
+  assert.equal(e[0].texto, '¡Hola! Hoy 1 BRL = 0.7 PEN. Comisión 5.00 BRL. Recibirás 350.00 PEN. Tasa asegurada hasta las 10:15 a. m.');
   assert.deepEqual(e[0].opciones.map((o) => o.id), ['continuar', 'cambiar_monto', 'persona']);
   assert.equal(e[1].tipo, 'enlace');
   assert.equal(e[1].url, 'https://brasper.com/es');
@@ -49,6 +50,7 @@ test('PARIDAD: operación completa con cuenta guardada = 13 mensajes salientes y
   assert.equal(e[5].texto, 'Tengo guardada tu cuenta Scotiabank ••9956. ¿Recibes ahí? Debe estar a tu nombre.');
   await m.decir('Sí, esa', { opcionId: 'si_esa' });
   assert.match(e[6].texto, /^Transfiere 505\.00 BRL a:\nTitular: BrasPer \(DEMO\)\nBanco: Banco do Brasil\nCuenta: DEMO-BRL-0001/);
+  assert.ok(e[6].texto.endsWith('Tasa asegurada hasta las 10:15 a. m.'));
   assert.equal(e[7].texto, 'Cuando termines la transferencia, toca "Ya transferí".');
   await m.decir('Ya transferí', { opcionId: 'ya_transferi' });
   assert.equal(e[8].texto, 'Perfecto. Envíame la foto del comprobante.');
@@ -63,10 +65,21 @@ test('PARIDAD: operación completa con cuenta guardada = 13 mensajes salientes y
   await m.accion('set_status', { operacion_id: 'BR-0001', estado: 'verificada' });
   assert.deepEqual(await m.motor.iniciar('E4', T, `${T}@c.us`, { operacion_id: 'BR-0001' }), { iniciado: true });
   assert.equal(e[11].texto, '✅ Pago verificado. Enviamos tu dinero a la cuenta ••9956.');
-  assert.equal(e[12].texto, '¡Listo! Recibiste 350.00 PEN. Te enviamos tu comprobante por correo.');
+  assert.equal(e[12].texto, '¡Listo! Recibiste 350.00 PEN.'); // el comprobante llega aparte, como PDF por el chat
 
   assert.equal(e.length, 13);
   assert.equal(m.entrantes(), 9);
+
+  // Después del aviso, el comprobante en PDF por el mismo chat (con los datos reales de la operación).
+  const r = await entregarComprobante({ kv: m.kv, proveedor: m.proveedor, registrar: () => {}, telefono: T, chatId: `${T}@c.us`, operacionId: 'BR-0001' });
+  assert.equal(r.enviado, true);
+  assert.equal(e.length, 14);
+  assert.equal(e[13].tipo, 'documento');
+  assert.equal(e[13].nombre, 'comprobante-BR-0001.pdf');
+  const pdf = Buffer.from(e[13].base64, 'base64');
+  for (const t of ['BR-0001', '500.00 BRL', '505.00 BRL', '350.00 PEN', '1 BRL = 0.7 PEN', 'Scotiabank \x95\x959956', 'Banco do Brasil', 'Ahorros', 'DNI 12345678', '123456']) {
+    assert.ok(pdf.includes(Buffer.from(`(${t})`, 'latin1')), `el PDF trae "${t}"`);
+  }
 });
 
 test('PARIDAD: sin datos de la IA, el flujo pregunta moneda por moneda (el cliente nunca queda sin respuesta)', async () => {
