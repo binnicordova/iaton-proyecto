@@ -1,0 +1,148 @@
+{
+  "_nota": "Evento real capturado en H0 con NOWEB (toque de la fila BCP de una lista), sanitizado: teléfonos, LID, nombre y secretos reemplazados.",
+  "id": "evt_01m4v7ssa0zz6j60nns74regr5",
+  "timestamp": 1791915517248,
+  "event": "message",
+  "session": "demo",
+  "me": {
+    "id": "51988888888@c.us",
+    "pushName": "Cliente",
+    "lid": "184512345678901@lid",
+    "reachoutTimelock": null,
+    "messageCapping": {
+      "cappingStatus": "NONE",
+      "totalQuota": 300,
+      "usedQuota": 0,
+      "cycleStart": 1790830800,
+      "cycleEnd": 1793509199,
+      "mvStatus": "NOT_ELIGIBLE",
+      "oteStatus": "NOT_ELIGIBLE"
+    }
+  },
+  "payload": {
+    "id": "false_184512345678901@lid_AC3ABE490B8353FF0E884CF591FF4E0D",
+    "timestamp": 1791915517,
+    "from": "184512345678901@lid",
+    "fromMe": false,
+    "source": "app",
+    "body": "BCP",
+    "hasMedia": false,
+    "media": null,
+    "ack": 2,
+    "ackName": "DEVICE",
+    "location": null,
+    "vCards": null,
+    "replyTo": {
+      "id": "3EB027202B400517C22894",
+      "participant": "184512345678901@lid",
+      "body": "BrasPer\nH0 3/5: lista\nBrasPer",
+      "hasMedia": false,
+      "media": null,
+      "_data": {
+        "listMessage": {
+          "title": "BrasPer",
+          "description": "H0 3/5: lista",
+          "buttonText": "Elegir banco",
+          "listType": "SINGLE_SELECT",
+          "sections": [
+            {
+              "title": "Opciones",
+              "rows": [
+                {
+                  "title": "BCP",
+                  "rowId": "BCP"
+                },
+                {
+                  "title": "Interbank",
+                  "rowId": "Interbank"
+                },
+                {
+                  "title": "Otro",
+                  "rowId": "Otro"
+                }
+              ]
+            }
+          ],
+          "footerText": "BrasPer"
+        }
+      }
+    },
+    "_data": {
+      "key": {
+        "remoteJid": "184512345678901@lid",
+        "remoteJidAlt": "51999999999@s.whatsapp.net",
+        "fromMe": false,
+        "id": "AC3ABE490B8353FF0E884CF591FF4E0D",
+        "participant": "",
+        "addressingMode": "lid"
+      },
+      "messageTimestamp": 1791915517,
+      "pushName": "Cliente",
+      "broadcast": false,
+      "message": {
+        "messageContextInfo": {
+          "deviceListMetadata": {
+            "senderKeyHash": "UHKeHyH4au7JXA==",
+            "senderTimestamp": "1791836433",
+            "recipientKeyHash": "p9bjiQz6WUvtAQ==",
+            "recipientTimestamp": "1791915305"
+          },
+          "deviceListMetadataVersion": 2,
+          "messageSecret": "<redactado>"
+        },
+        "listResponseMessage": {
+          "title": "BCP",
+          "listType": "SINGLE_SELECT",
+          "singleSelectReply": {
+            "selectedRowId": "BCP"
+          },
+          "contextInfo": {
+            "stanzaId": "3EB027202B400517C22894",
+            "participant": "184512345678901@lid",
+            "quotedMessage": {
+              "listMessage": {
+                "title": "BrasPer",
+                "description": "H0 3/5: lista",
+                "buttonText": "Elegir banco",
+                "listType": "SINGLE_SELECT",
+                "sections": [
+                  {
+                    "title": "Opciones",
+                    "rows": [
+                      {
+                        "title": "BCP",
+                        "rowId": "BCP"
+                      },
+                      {
+                        "title": "Interbank",
+                        "rowId": "Interbank"
+                      },
+                      {
+                        "title": "Otro",
+                        "rowId": "Otro"
+                      }
+                    ]
+                  }
+                ],
+                "footerText": "BrasPer"
+              }
+            },
+            "quotedType": "EXPLICIT"
+          }
+        }
+      },
+      "status": 3
+    }
+  },
+  "engine": "NOWEB",
+  "environment": {
+    "version": "2026.9.2",
+    "engine": "NOWEB",
+    "tier": "CORE",
+    "browser": null,
+    "platform": "linux/arm64",
+    "worker": {
+      "id": null
+    }
+  }
+}

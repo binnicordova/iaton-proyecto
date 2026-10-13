@@ -1,0 +1,3 @@
+{ "id": "evt_img_1", "timestamp": 1760000100000, "event": "message", "session": "demo",
+  "payload": { "id": "false_51999999999@c.us_AAA2", "timestamp": 1760000100, "from": "51999999999@c.us", "fromMe": false, "source": "app", "body": "", "hasMedia": true, "media": { "url": null, "mimetype": "image/jpeg" }, "_data": {} },
+  "engine": "WEBJS" }

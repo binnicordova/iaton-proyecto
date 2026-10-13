@@ -1,0 +1,15 @@
+{
+  "name": "brasper-waha",
+  "private": true,
+  "description": "Flujo de WhatsApp de BrasPer sobre WAHA: servidor, motor de flujo y proveedor",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "start": "node src/main.js",
+    "setup": "node src/scripts/setup.js",
+    "sesion": "node src/scripts/crear-sesion.js",
+    "preflight": "node src/scripts/preflight.js",
+    "demo:reset": "node src/scripts/demo.js reset",
+    "demo:seed": "node src/scripts/demo.js seed"
+  }
+}

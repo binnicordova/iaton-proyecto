@@ -1,3 +1,13 @@
 kapso/dist/
 node_modules/
 .superpowers/
+
+# WAHA / secretos locales
+.env
+.env.*
+!.env.example
+waha/.sessions/
+.sessions/
+*.db
+*.db-wal
+*.db-shm

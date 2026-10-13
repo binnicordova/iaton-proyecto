@@ -1,0 +1,13 @@
+.env
+**/.env
+**/.sessions
+**/data
+**/node_modules
+.git
+presentacion
+flow
+reference
+**/.capturas
+**/*.db
+**/*.db-wal
+**/*.db-shm

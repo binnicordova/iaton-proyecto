@@ -1,0 +1,3 @@
+{ "id": "evt_me_1", "timestamp": 1760000200000, "event": "message", "session": "demo",
+  "payload": { "id": "true_51999999999@c.us_AAA3", "timestamp": 1760000200, "from": "51988888888@c.us", "fromMe": true, "source": "api", "body": "respuesta del bot", "hasMedia": false },
+  "engine": "WEBJS" }

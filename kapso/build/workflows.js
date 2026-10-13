@@ -26,7 +26,7 @@ const PROMPT_EXTRACCION = [
   '- moneda_destino: la moneda que recibe (value_type string, solo BRL, PEN o USD).',
   'Interpreta "reales" como BRL, "soles" como PEN y "dólares" como USD. "A Perú" implica moneda_destino PEN y "a Brasil" implica BRL.',
   'Si el cliente no menciona un dato, no lo guardes ni lo inventes.',
-  'No escribas ningún mensaje al cliente. Cuando termines, llama a complete_task.',
+  'No escribas ningún mensaje al cliente. Usa solo las herramientas save_variable y complete_task; nunca otra. Cuando termines, llama a complete_task.',
 ].join('\n');
 
 const AGENTE_EXTRACCION = {
@@ -35,7 +35,9 @@ const AGENTE_EXTRACCION = {
   temperature: 0,
   max_iterations: 6,
   enabled_default_tools: ['save_variable', 'complete_task'],
-  message_delivery_mode: 'auto_send_assistant_text',
+  // Kapso agrega por su cuenta handoff_to_human, send_notification_to_user y enter_waiting y ignora default_tool_configs;
+  // por eso el prompt prohíbe usarlas y message_delivery_mode es tool_only.
+  message_delivery_mode: 'tool_only',
 };
 
 // Handoff a persona: registra el motivo, avisa al cliente (con enlace opcional) y detiene la ejecución.
@@ -163,7 +165,10 @@ function e2() {
 
   // Cuenta nueva: banco por lista, número en texto y confirmación enmascarada.
   const bn = elegirPorMoneda(f, 'bn', { monedaVar: 'moneda_destino', body: 'Vamos a agregar tu cuenta. ¿En qué banco está?', listas: BANCOS_POR_MONEDA, variable: 'cuenta_banco_nuevo', motivo: 'banco_cuenta_nueva' });
-  f.link('cliente', bn.entrada, 'sin_cuenta').link(cu.ruta, bn.entrada, 'otra_cuenta');
+  // "Otra cuenta": primero las demás cuentas guardadas de la moneda; al agotarse, una cuenta nueva.
+  f.api('sig', 'next_account', { edges: ['otra_guardada', 'nueva'] });
+  f.link('cliente', bn.entrada, 'sin_cuenta').link(cu.ruta, 'sig', 'otra_cuenta');
+  f.link('sig', cu.entrada, 'otra_guardada').link('sig', bn.entrada, 'nueva');
   const num = pregunta(f, 'num', {
     prompt: 'Escribe el número de cuenta.', guardar: 'numero_cuenta_raw', validar: 'numero_cuenta',
     error: 'Ese número no parece válido. Escríbelo solo con dígitos.', motivo: 'numero_cuenta_invalido',
@@ -239,7 +244,13 @@ function e3() {
   f.wait('esp_foto');
   f.api('foto', 'media:comprobante', { edges: ['foto', 'sin_foto', 'escalar'] });
   f.text('sin_foto', 'No recibí una foto. Envíame la foto o captura del comprobante.');
-  f.link(ac.ruta, 'pide_foto', 'ya_transferi').link('pide_foto', 'esp_foto').link('esp_foto', 'foto');
+  // La tasa se revisa también al transferir: si venció, la constancia se adjunta marcada para que una persona confirme la tasa final.
+  f.api('vigencia2', 'check_tasa', { edges: ['vigente', 'vencida'] });
+  f.link(ac.ruta, 'vigencia2', 'ya_transferi').link('vigencia2', 'pide_foto', 'vigente');
+  f.setvar('marca_vencida', 'tasa_vencida', 'si');
+  f.text('aviso_vencida', 'Tu tasa asegurada venció mientras transferías. Igual recibo tu constancia: una persona confirmará la tasa final al validar tu pago.');
+  f.link('vigencia2', 'marca_vencida', 'vencida').link('marca_vencida', 'aviso_vencida').link('aviso_vencida', 'pide_foto');
+  f.link('pide_foto', 'esp_foto').link('esp_foto', 'foto');
   f.link('foto', 'sin_foto', 'sin_foto').link('sin_foto', 'esp_foto');
   f.link('foto', escalar(f, 'foto_esc', 'comprobante_no_recibido'), 'escalar');
   const nop = pregunta(f, 'nop', { prompt: 'Ahora escribe el número de operación bancaria.', guardar: 'n_operacion_raw', validar: 'n_operacion', error: 'Ese número no parece válido. Escríbelo solo con dígitos.', motivo: 'n_operacion_invalido' });
