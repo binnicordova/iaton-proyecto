@@ -63,8 +63,9 @@ function lima(date) {
   const d = new Date(date.getTime() - 5 * 3600 * 1000);
   return { dow: d.getUTCDay(), h: d.getUTCHours(), m: d.getUTCMinutes() };
 }
-const fmtHora = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'a. m.' : 'p. m.'}`;
 const pad2 = (n) => String(n).padStart(2, '0');
+// Hora en 12 horas como la escribe el cliente en Perú: "1:05 p. m.", "12:25 a. m.".
+const fmtHora = (h, m = 0) => `${((h + 11) % 12) + 1}:${pad2(m)} ${h < 12 ? 'a. m.' : 'p. m.'}`;
 
 function proximaApertura(now) {
   const { dow, h } = lima(now);
@@ -187,7 +188,7 @@ const ACCIONES = {
       tasa_txt: String(Number(tasa.toFixed(4))),
       monto_txt: monto.toFixed(2), comision_txt: comision.toFixed(2),
       recibe_txt: round2(monto * tasa).toFixed(2), total_enviar_txt: round2(monto + comision).toFixed(2),
-      tasa_hasta: `${pad2(hl.h)}:${pad2(hl.m)}`, tasa_hasta_iso: hasta.toISOString(),
+      tasa_hasta: fmtHora(hl.h, hl.m), tasa_hasta_iso: hasta.toISOString(),
     };
     const op = await getOp(db, vars.operacion_id);
     if (op) await saveOp(db, { ...op, snap: { ...op.snap, ...snapDe(out) } });
