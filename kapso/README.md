@@ -37,6 +37,16 @@ El teléfono va en formato internacional, sin `+` o con él. Debe haberse unido 
 
 El aviso sale como texto libre y solo si el cliente escribió hace menos de 23 horas. Si no, E4 anota `aviso_pendiente = plantilla_requerida` y no envía nada.
 
+## Cerrar un caso escalado
+
+Cuando una persona resuelve un handoff, el cliente sigue viendo "una persona atiende tu caso" hasta que se cierre la operación. Con `invoke_function`:
+
+`{"action":"resolve_handoff","phone":"<TELÉFONO>","vars":{"operacion_id":"BR-000N","estado":"completada"}}` (o `cancelada`). La operación pasa a ese estado, se borra el handoff y el cliente puede cotizar de nuevo. Cualquier otro estado se rechaza.
+
+## Varias cuentas guardadas
+
+`seed_demo` con `"vars":{"cuentas":2}` siembra Scotiabank ••9956 y BCP ••1111 en PEN. Al elegir "Otra cuenta" el chat ofrece primero la siguiente cuenta guardada y solo al agotarlas pide una nueva. Una cuenta con el mismo banco, últimos 4 dígitos y moneda no se duplica.
+
 ## Simular fallos
 
 - **Tasas caídas:** `set_function_secret` `TASAS_CAIDAS=1`; al terminar, `delete_function_secret`. Con la variable activa, E1 responde que no hay tasas y pasa a una persona.
@@ -58,6 +68,7 @@ Se filtran por moneda con la acción `route_moneda`:
 
 - El botón "Abrir formulario web" abre `https://brasper.com/es`: la web aún no admite la cotización por parámetros. El enlace a la app no existe todavía.
 - Listas de bancos y de origen de fondos, horarios sin feriados, y comisión (1 % sobre el monto) son de demostración.
+- El agente de E1 queda en `tool_only` y con un prompt que prohíbe herramientas distintas de `save_variable` y `complete_task`. Kapso agrega por su cuenta `handoff_to_human`, `send_notification_to_user` y `enter_waiting` e ignora `default_tool_configs`: no se pueden quitar por API.
 - Las plantillas de Meta no se usan: fuera de la ventana de 24 h el aviso queda pendiente.
 - Cada paso con función tarda unos 4–5 s (varias llamadas encadenadas); es latencia de Kapso, no un fallo.
 - El sandbox de Kapso a veces deja de recibir mensajes aunque la sesión figure `Active`; se resuelve recreando la sesión del sandbox.

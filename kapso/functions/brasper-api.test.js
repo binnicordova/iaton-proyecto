@@ -333,3 +333,76 @@ test('attach_proof guarda si la tasa había vencido al transferir', async () => 
   await call('attach_proof', { vars: { operacion_id: 'BR-0002', comprobante_msg_id: 'w2', n_operacion_bancaria: '1234' } });
   assert.equal((await env.KV.get('op:BR-0002', 'json')).proof.tasa_vencida, false);
 });
+
+test('al resolver una operación escalada (completada o cancelada) el cliente queda libre para cotizar', async () => {
+  const R = ['e1', 'e3', 'estado', 'escalada'];
+  for (const final of ['completada', 'cancelada']) {
+    const { call } = mundo();
+    await call('create_operation', { vars: COTIZACION });
+    await call('handoff_to_human:pago_no_validado', { vars: { operacion_id: 'BR-0001' } });
+    assert.equal((await call('get_status', { edges: R })).next_edge, 'escalada');
+    await call('set_status', { vars: { operacion_id: 'BR-0001', estado: final } });
+    assert.equal((await call('get_status', { edges: R })).next_edge, 'e1', final);
+  }
+});
+
+test('una operación rechazada sigue bloqueando hasta que una persona la resuelve', async () => {
+  const { call } = mundo();
+  const R = ['e1', 'e3', 'estado', 'escalada'];
+  await call('create_operation', { vars: COTIZACION });
+  await call('set_status', { vars: { operacion_id: 'BR-0001', estado: 'rechazada' } });
+  assert.equal((await call('get_status', { edges: R })).next_edge, 'estado');
+  await call('set_status', { vars: { operacion_id: 'BR-0001', estado: 'cancelada' } });
+  assert.equal((await call('get_status', { edges: R })).next_edge, 'e1');
+});
+
+test('get_client ofrece la primera cuenta guardada de la moneda y next_account recorre las demás', async () => {
+  const { env, call } = mundo();
+  await env.KV.put(`client:${TEL}`, JSON.stringify({
+    correo: 'x@y.z',
+    cuentas: [
+      { id: 'a1', banco: 'Scotiabank', ultimos4: '9956', moneda: 'PEN' },
+      { id: 'a2', banco: 'BCP', ultimos4: '1111', moneda: 'PEN' },
+      { id: 'a3', banco: 'Itaú', ultimos4: '2222', moneda: 'BRL' },
+    ],
+  }));
+  const v = { moneda_destino: 'PEN' };
+  const c1 = await call('get_client', { vars: v, edges: ['con_cuenta', 'sin_cuenta'] });
+  assert.deepEqual([c1.next_edge, c1.vars.cuenta_banco, c1.vars.cuenta_idx], ['con_cuenta', 'Scotiabank', 0]);
+  const n1 = await call('next_account', { vars: { ...v, cuenta_idx: 0 }, edges: ['otra_guardada', 'nueva'] });
+  assert.deepEqual([n1.next_edge, n1.vars.cuenta_banco, n1.vars.cuenta_ultimos4, n1.vars.cuenta_idx], ['otra_guardada', 'BCP', '1111', 1]);
+  const n2 = await call('next_account', { vars: { ...v, cuenta_idx: 1 }, edges: ['otra_guardada', 'nueva'] });
+  assert.equal(n2.next_edge, 'nueva');
+});
+
+test('save_account no duplica una cuenta ya guardada', async () => {
+  const { env, call } = mundo();
+  const vars = { moneda_destino: 'PEN', cuenta_banco_nuevo: 'BCP', cuenta_numero_nuevo: '19412345671111' };
+  const a = await call('save_account', { vars });
+  const b = await call('save_account', { vars });
+  assert.equal(a.vars.cuenta_id, b.vars.cuenta_id);
+  const cliente = JSON.parse(await env.KV.get(`client:${TEL}`));
+  assert.equal(cliente.cuentas.length, 1);
+});
+
+test('resolve_handoff libera al cliente, limpia el handoff y solo acepta estados finales', async () => {
+  const { env, call } = mundo();
+  const R = ['e1', 'e3', 'estado', 'escalada'];
+  await call('create_operation', { vars: COTIZACION });
+  await call('handoff_to_human:consulta', { vars: { operacion_id: 'BR-0001' } });
+  assert.equal((await call('get_status', { edges: R })).next_edge, 'escalada');
+  const r = await call('resolve_handoff', { vars: { operacion_id: 'BR-0001', estado: 'completada' } });
+  assert.equal(r.vars.estado, 'completada');
+  assert.equal((await call('get_status', { edges: R })).next_edge, 'e1');
+  assert.equal(await env.KV.get(`handoff:${TEL}`), null);
+  assert.equal((await call('resolve_handoff', { vars: { operacion_id: 'BR-0001', estado: 'verificada' } })).status, 500);
+});
+
+test('seed_demo siembra una cuenta por defecto y dos si se pide cuentas=2', async () => {
+  const { env, call } = mundo();
+  await call('seed_demo');
+  assert.equal(JSON.parse(await env.KV.get(`client:${TEL}`)).cuentas.length, 1);
+  await call('seed_demo', { vars: { cuentas: 2 } });
+  const c = JSON.parse(await env.KV.get(`client:${TEL}`)).cuentas;
+  assert.deepEqual(c.map((x) => `${x.banco}${x.ultimos4}`), ['Scotiabank9956', 'BCP1111']);
+});

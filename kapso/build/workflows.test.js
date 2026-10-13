@@ -148,3 +148,18 @@ test('el agente de E1 solo envía mensajes por herramientas (tool_only)', () => 
   const agente = flows.E1.nodes.find((n) => n.id === 'extraer').config;
   assert.equal(agente.message_delivery_mode, 'tool_only');
 });
+
+test('"Otra cuenta" recorre las demás cuentas guardadas antes de pedir una nueva', () => {
+  const e2 = flows.E2;
+  const desde = (src, label) => e2.edges.filter((e) => e.source === src && e.label === label).map((e) => e.target);
+  assert.deepEqual(desde('cu_route', 'otra_cuenta'), ['sig_set']);
+  assert.deepEqual(desde('sig', 'otra_guardada'), ['cu_ask']);
+  assert.deepEqual(desde('sig', 'nueva'), ['bn_mon_set']);
+});
+
+test('el agente de E1 solo pide save_variable y complete_task y el prompt prohíbe las demás herramientas', () => {
+  const agente = flows.E1.nodes.find((n) => n.id === 'extraer').config;
+  assert.deepEqual(agente.enabled_default_tools, ['save_variable', 'complete_task']);
+  assert.match(agente.system_prompt, /solo.*save_variable.*complete_task.*nunca otra/is);
+  assert.equal(agente.message_delivery_mode, 'tool_only');
+});

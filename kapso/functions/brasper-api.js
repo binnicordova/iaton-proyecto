@@ -84,6 +84,9 @@ const kv = (env) => ({
   del: (k) => env.KV.delete(k),
 });
 
+const cuentasDe = (cliente, vars) => (cliente.cuentas || []).filter((c) => c.moneda === normMoneda(vars.moneda_destino));
+const varsCuenta = (c) => ({ cuenta_id: c.id, cuenta_banco: c.banco, cuenta_ultimos4: c.ultimos4 });
+
 const getOp = (db, id) => (id ? db.get(`op:${id}`) : Promise.resolve(null));
 async function getActiveOp(db, phone) {
   return getOp(db, await db.get(`active:${phone}`));
@@ -242,12 +245,21 @@ const ACCIONES = {
 
   get_client: async ({ env, vars, phone }) => {
     const cliente = await kv(env).get(`client:${phone}`);
-    const cuenta = cliente && cliente.cuentas.find((c) => c.moneda === normMoneda(vars.moneda_destino));
+    const cuenta = cliente && cuentasDe(cliente, vars)[0];
     if (!cuenta) return { vars: { cliente_existe: Boolean(cliente) }, next_edge: 'sin_cuenta' };
     return {
-      vars: { cliente_existe: true, cuenta_id: cuenta.id, cuenta_banco: cuenta.banco, cuenta_ultimos4: cuenta.ultimos4, correo: cliente.correo || '' },
+      vars: { cliente_existe: true, cuenta_idx: 0, ...varsCuenta(cuenta), correo: cliente.correo || '' },
       next_edge: 'con_cuenta',
     };
+  },
+
+  // "Otra cuenta": primero se ofrecen las demás cuentas guardadas de la moneda; al agotarse, se pasa a agregar una nueva.
+  next_account: async ({ env, vars, phone }) => {
+    const cliente = await kv(env).get(`client:${phone}`);
+    const idx = (Number(vars.cuenta_idx) || 0) + 1;
+    const cuenta = cliente && cuentasDe(cliente, vars)[idx];
+    if (!cuenta) return { vars: {}, next_edge: 'nueva' };
+    return { vars: { cuenta_idx: idx, ...varsCuenta(cuenta) }, next_edge: 'otra_guardada' };
   },
 
   list_accounts: async ({ env, phone }) => {
@@ -258,15 +270,18 @@ const ACCIONES = {
   save_account: async ({ env, vars, phone }) => {
     const db = kv(env);
     const cliente = (await db.get(`client:${phone}`)) || { cuentas: [], correo: '' };
-    const n = (Number(await db.get('seq_cuentas')) || 0) + 1;
-    await db.put('seq_cuentas', n);
-    const cuenta = {
-      id: `acc_${n}`, banco: vars.cuenta_banco_nuevo, ultimos4: String(vars.cuenta_numero_nuevo).slice(-4),
-      moneda: normMoneda(vars.moneda_destino),
-    };
-    cliente.cuentas.push(cuenta);
-    await db.put(`client:${phone}`, cliente);
-    return { vars: { cuenta_id: cuenta.id, cuenta_banco: cuenta.banco, cuenta_ultimos4: cuenta.ultimos4 } };
+    const banco = vars.cuenta_banco_nuevo;
+    const ultimos4 = String(vars.cuenta_numero_nuevo).slice(-4);
+    const moneda = normMoneda(vars.moneda_destino);
+    let cuenta = cliente.cuentas.find((c) => c.banco === banco && c.ultimos4 === ultimos4 && c.moneda === moneda);
+    if (!cuenta) {
+      const n = (Number(await db.get('seq_cuentas')) || 0) + 1;
+      await db.put('seq_cuentas', n);
+      cuenta = { id: `acc_${n}`, banco, ultimos4, moneda };
+      cliente.cuentas.push(cuenta);
+      await db.put(`client:${phone}`, cliente);
+    }
+    return { vars: varsCuenta(cuenta) };
   },
 
   create_operation: async ({ env, vars, phone, now }) => {
@@ -323,6 +338,18 @@ const ACCIONES = {
     return { vars: { escalada: true } };
   },
 
+  // Una persona (o el backend) cierra un caso escalado: la operación pasa a un estado final y el cliente queda libre.
+  resolve_handoff: async ({ env, vars, phone }) => {
+    const db = kv(env);
+    const final = vars.estado || 'cancelada';
+    if (!['completada', 'cancelada'].includes(final)) throw new Error(`estado final inválido: ${final}`);
+    const op = await getOp(db, vars.operacion_id);
+    if (op) await saveOp(db, { ...op, estado: final });
+    await db.del(`active:${phone}`);
+    await db.del(`handoff:${phone}`);
+    return { vars: { estado: final } };
+  },
+
   // --- Simulación del backend y utilidades de demo: se invocan a mano con functions.invoke ---
   set_status: async ({ env, vars }) => {
     const db = kv(env);
@@ -333,11 +360,11 @@ const ACCIONES = {
     return { vars: { estado: vars.estado, operacion_id: op.id } };
   },
 
-  seed_demo: async ({ env, phone }) => {
-    await kv(env).put(`client:${phone}`, {
-      correo: 'demo@example.com',
-      cuentas: [{ id: 'acc_demo', banco: 'Scotiabank', ultimos4: '9956', moneda: 'PEN' }],
-    });
+  // `vars.cuentas = 2` siembra además una cuenta BCP en PEN para probar el recorrido de cuentas guardadas.
+  seed_demo: async ({ env, phone, vars }) => {
+    const cuentas = [{ id: 'acc_demo', banco: 'Scotiabank', ultimos4: '9956', moneda: 'PEN' }];
+    if (Number(vars.cuentas) === 2) cuentas.push({ id: 'acc_demo2', banco: 'BCP', ultimos4: '1111', moneda: 'PEN' });
+    await kv(env).put(`client:${phone}`, { correo: 'demo@example.com', cuentas });
     return { vars: { seed: true } };
   },
 

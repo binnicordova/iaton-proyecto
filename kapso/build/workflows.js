@@ -26,7 +26,7 @@ const PROMPT_EXTRACCION = [
   '- moneda_destino: la moneda que recibe (value_type string, solo BRL, PEN o USD).',
   'Interpreta "reales" como BRL, "soles" como PEN y "dólares" como USD. "A Perú" implica moneda_destino PEN y "a Brasil" implica BRL.',
   'Si el cliente no menciona un dato, no lo guardes ni lo inventes.',
-  'No escribas ningún mensaje al cliente. Cuando termines, llama a complete_task.',
+  'No escribas ningún mensaje al cliente. Usa solo las herramientas save_variable y complete_task; nunca otra. Cuando termines, llama a complete_task.',
 ].join('\n');
 
 const AGENTE_EXTRACCION = {
@@ -35,6 +35,8 @@ const AGENTE_EXTRACCION = {
   temperature: 0,
   max_iterations: 6,
   enabled_default_tools: ['save_variable', 'complete_task'],
+  // Kapso agrega por su cuenta handoff_to_human, send_notification_to_user y enter_waiting y ignora default_tool_configs;
+  // por eso el prompt prohíbe usarlas y message_delivery_mode es tool_only.
   message_delivery_mode: 'tool_only',
 };
 
@@ -163,7 +165,10 @@ function e2() {
 
   // Cuenta nueva: banco por lista, número en texto y confirmación enmascarada.
   const bn = elegirPorMoneda(f, 'bn', { monedaVar: 'moneda_destino', body: 'Vamos a agregar tu cuenta. ¿En qué banco está?', listas: BANCOS_POR_MONEDA, variable: 'cuenta_banco_nuevo', motivo: 'banco_cuenta_nueva' });
-  f.link('cliente', bn.entrada, 'sin_cuenta').link(cu.ruta, bn.entrada, 'otra_cuenta');
+  // "Otra cuenta": primero las demás cuentas guardadas de la moneda; al agotarse, una cuenta nueva.
+  f.api('sig', 'next_account', { edges: ['otra_guardada', 'nueva'] });
+  f.link('cliente', bn.entrada, 'sin_cuenta').link(cu.ruta, 'sig', 'otra_cuenta');
+  f.link('sig', cu.entrada, 'otra_guardada').link('sig', bn.entrada, 'nueva');
   const num = pregunta(f, 'num', {
     prompt: 'Escribe el número de cuenta.', guardar: 'numero_cuenta_raw', validar: 'numero_cuenta',
     error: 'Ese número no parece válido. Escríbelo solo con dígitos.', motivo: 'numero_cuenta_invalido',

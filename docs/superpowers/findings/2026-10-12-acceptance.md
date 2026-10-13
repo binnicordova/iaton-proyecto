@@ -55,3 +55,10 @@ Cambios (rama `fix/brasper-seguimiento`, 49/49 pruebas, publicados en Kapso: fun
 - Observación: Kapso agrega por su cuenta las herramientas `handoff_to_human`, `send_notification_to_user` y `enter_waiting` al agente de E1. Con `tool_only` no hay texto libre, pero esas herramientas siguen disponibles.
 
 Verificado en vivo (13-oct, 22:15 a 22:37, hora Lima): con `tool_only`, "Hola, quiero enviar 500 reales a Perú" produjo la cotización correcta sin mensajes extra. Al tocar "Ya transferí" a las 22:36 (tasa vigente hasta las 22:30), E3 avisó que la tasa venció, aceptó la foto y el número de operación, y cerró con "Una persona validará tu pago…".
+
+## Seguimiento 2: cuentas, estados y herramientas del agente
+
+- **Estados `escalada` y `rechazada`:** una operación `escalada` marcada `completada` o `cancelada` ya liberaba al cliente (esos estados no tienen ruta bloqueante). Se agregó la acción explícita `resolve_handoff` (solo `completada` o `cancelada`), que además limpia el handoff. `rechazada` sigue bloqueando hasta que una persona la resuelva.
+- **Varias cuentas por moneda:** "Otra cuenta" recorre las demás cuentas guardadas (`next_account`) y solo después pide una nueva; `save_account` no duplica banco + últimos 4 + moneda. Limitación: de las cuentas nuevas solo se guardan los últimos 4 dígitos.
+- **Herramientas extra del agente de E1:** Kapso ignora `default_tool_configs` y mantiene `handoff_to_human`, `send_notification_to_user` y `enter_waiting`. Mitigación: `tool_only` más un prompt que prohíbe usar otra herramienta que `save_variable` y `complete_task`. Es un límite de la plataforma, no se puede eliminar por API.
+- Pruebas: 57/57. Publicados en Kapso: función, E2 (83 nodos, 116 aristas, verificado contra `dist`) y E1.
