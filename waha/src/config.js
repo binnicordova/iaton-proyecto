@@ -20,7 +20,10 @@ function cargarConfig(env) {
   if (!['nativo', 'texto'].includes(interactivos)) throw new Error('WAHA_INTERACTIVOS debe ser nativo o texto');
   const comprobanteEntrega = env.COMPROBANTE_ENTREGA || 'whatsapp';
   if (!['whatsapp', 'ninguno'].includes(comprobanteEntrega)) throw new Error('COMPROBANTE_ENTREGA debe ser whatsapp o ninguno');
+  const backend = env.BACKEND || 'simulado';
+  if (!['real', 'simulado'].includes(backend)) throw new Error('BACKEND debe ser real o simulado');
   return {
+    backend,
     wahaBaseUrl: env.WAHA_BASE_URL || `http://127.0.0.1:${env.WAHA_PORT || 3010}`,
     wahaApiKey: env.WAHA_API_KEY,
     wahaSession: env.WAHA_SESSION || 'demo',

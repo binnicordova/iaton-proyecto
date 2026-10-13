@@ -10,6 +10,7 @@
     "sesion": "node src/scripts/crear-sesion.js",
     "preflight": "node src/scripts/preflight.js",
     "demo:reset": "node src/scripts/demo.js reset",
+    "contrato": "node scripts/contrato.js",
     "demo:seed": "node src/scripts/demo.js seed"
   }
 }

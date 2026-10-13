@@ -27,7 +27,7 @@ function iguales(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
-function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch }) {
+function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch, saludBackend = async () => {} }) {
   const pendientes = new Set();
   const enSegundoPlano = (promesa) => { pendientes.add(promesa); promesa.finally(() => pendientes.delete(promesa)); };
   const kv = almacen.kvEnv();
@@ -90,6 +90,17 @@ function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch })
     }
   }
 
+  // En modo real basta con que el backend responda (p. ej. getRates); el detalle del fallo nunca sale al exterior.
+  async function saludDelBackend(responder) {
+    if (config.backend !== 'real') return responder(200, { backend: 'simulado', ready: true });
+    try {
+      await saludBackend();
+      return responder(200, { backend: 'real', ready: true });
+    } catch {
+      return responder(503, { backend: 'real', ready: false });
+    }
+  }
+
   async function avisos(req, responder) {
     if (!iguales(req.headers['x-internal-key'], config.internalKey)) return responder(401, { error: 'no autorizado' });
     let datos;
@@ -99,7 +110,7 @@ function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch })
     const chatId = guardado || `${datos.telefono}@c.us`;
     const r = await motor.iniciar('E4', datos.telefono, chatId, { operacion_id: datos.operacion_id });
     // Después del aviso de E4, el comprobante en PDF por el mismo chat. Un fallo aquí nunca rompe el aviso.
-    if (r.iniciado && config.comprobanteEntrega === 'whatsapp') {
+    if (r.iniciado && config.backend !== 'real' && config.comprobanteEntrega === 'whatsapp') {
       try {
         r.comprobante = await entregarComprobante({ kv, proveedor, registrar: (e) => almacen.registrar(e), telefono: datos.telefono, chatId, operacionId: datos.operacion_id });
       } catch (e) {
@@ -116,6 +127,7 @@ function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch })
       const { pathname } = new URL(req.url, 'http://local');
       if (req.method === 'POST' && pathname === '/webhooks/waha') return await webhook(req, responder);
       if (req.method === 'GET' && pathname === '/health/whatsapp') return await salud(responder);
+      if (req.method === 'GET' && pathname === '/health/backend') return await saludDelBackend(responder);
       if (req.method === 'POST' && pathname === '/internal/avisos') return await avisos(req, responder);
       return responder(404, { error: 'no encontrado' });
     } catch (e) {

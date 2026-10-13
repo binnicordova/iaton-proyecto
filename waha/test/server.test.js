@@ -20,12 +20,12 @@ function flujos() {
   return { W0: w0, E4: e4 };
 }
 
-async function levantar({ fetchImpl, config } = {}) {
+async function levantar({ fetchImpl, config, saludBackend } = {}) {
   const db = abrirDb(':memory:');
   const almacen = crearAlmacen(db);
   const proveedor = new ProveedorFalso();
   const motor = crearMotor({ flujos: flujos(), almacen, proveedor, llamarFuncion: async () => ({ vars: {} }), extraer: async () => ({}) });
-  const { servidor, inactivo } = crearServidor({ config: { ...CONFIG, ...config }, motor, almacen, proveedor, fetchImpl });
+  const { servidor, inactivo } = crearServidor({ config: { ...CONFIG, ...config }, motor, almacen, proveedor, fetchImpl, saludBackend });
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   servidor.unref(); // si una prueba falla antes de cerrar, el proceso no se queda colgado
   const base = `http://127.0.0.1:${servidor.address().port}`;
@@ -245,4 +245,30 @@ test('un error inesperado al armar el comprobante no rompe el aviso: se informa 
     assert.deepEqual((await res.json()).comprobante, { enviado: false, motivo: 'error' });
     assert.equal(s.db.prepare("SELECT COUNT(*) n FROM registro WHERE tipo = 'error_comprobante'").get().n, 1);
   } finally { await s.cerrar(); }
+});
+
+test('con backend real el aviso interno no manda el comprobante simulado (lo manda el vigilante con el recibo real)', async () => {
+  const s = await levantar({ config: { backend: 'real' } });
+  try {
+    const res = await fetch(`${s.base}/internal/avisos`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Internal-Key': 'clave-interna' }, body: JSON.stringify({ telefono: '51944686794', operacion_id: 'BR-0001' }) });
+    const j = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(j.comprobante, undefined);
+    assert.ok(!s.proveedor.enviados.some((e) => e.tipo === 'documento'));
+  } finally { await s.cerrar(); }
+});
+
+test('/health/backend informa el modo y, en real, si el backend responde', async () => {
+  const sim = await levantar({ config: { backend: 'simulado' } });
+  try {
+    const r = await fetch(`${sim.base}/health/backend`);
+    assert.deepEqual([r.status, await r.json()], [200, { backend: 'simulado', ready: true }]);
+  } finally { await sim.cerrar(); }
+  for (const [ok, estado] of [[true, 200], [false, 503]]) {
+    const s = await levantar({ config: { backend: 'real' }, saludBackend: async () => { if (!ok) throw new Error('sin respuesta'); } });
+    try {
+      const r = await fetch(`${s.base}/health/backend`);
+      assert.deepEqual([r.status, (await r.json()).ready], [estado, ok]);
+    } finally { await s.cerrar(); }
+  }
 });

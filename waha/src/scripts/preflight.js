@@ -22,6 +22,13 @@ const { crearExtractor } = require('../ia/extraccion');
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return 'ready';
   });
+  if (c.backend === 'real') {
+    await probar('El backend de Firebase responde (/health/backend)', async () => {
+      const r = await fetch(`http://${c.host}:${c.puerto}/health/backend`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status} (getRates no respondió)`);
+      return 'getRates ok';
+    });
+  }
   await probar('La base SQLite abre y escribe', async () => { abrirDb(c.dbPath).exec('SELECT 1'); return c.dbPath; });
   await probar('Hay clave de Anthropic (no se muestra)', async () => { if (!c.anthropicApiKey) throw new Error('falta ANTHROPIC_API_KEY'); return 'presente'; });
   if (process.argv.includes('--ia')) {
@@ -31,6 +38,7 @@ const { crearExtractor } = require('../ia/extraccion');
       return 'ok';
     });
   }
+  filas.push(['Backend', true, c.backend]);
   filas.push(['Modo de botones y listas', true, c.interactivos]);
   for (const [n, ok, d] of filas) console.log(`${ok ? '✔' : '✘'} ${n}: ${d}`);
   console.log('Pendiente a mano: mensaje de prueba desde otro teléfono y sin aviso de restricción 463/475 en el panel de WAHA.');

@@ -46,3 +46,9 @@ test('COMPROBANTE_ENTREGA vale whatsapp por defecto, acepta ninguno y rechaza ot
   assert.equal(cargarConfig({ ...BASE, COMPROBANTE_ENTREGA: 'ninguno' }).comprobanteEntrega, 'ninguno');
   assert.throws(() => cargarConfig({ ...BASE, COMPROBANTE_ENTREGA: 'correo' }), /whatsapp o ninguno/);
 });
+
+test('BACKEND vale simulado por defecto, acepta real y rechaza otros valores', () => {
+  assert.equal(cargarConfig(BASE).backend, 'simulado');
+  assert.equal(cargarConfig({ ...BASE, BACKEND: 'real' }).backend, 'real');
+  assert.throws(() => cargarConfig({ ...BASE, BACKEND: 'firebase' }), /real o simulado/);
+});
