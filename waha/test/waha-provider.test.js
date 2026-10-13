@@ -37,18 +37,23 @@ test('modo texto: botones y lista salen como menú numerado por sendText', async
   assert.equal(llamadas[2].cuerpo.text, 'Web\nAbrir formulario web: https://brasper.com/es');
 });
 
-test('modo nativo: usa sendButtons, sendList y un botón url', async () => {
+test('modo nativo: todo se envía como lista de WhatsApp; el enlace como texto (H0: botones y botón url no llegan en cuentas personales)', async () => {
   const { p, llamadas } = proveedor([OK, OK, OK], { interactivos: 'nativo' });
   await p.enviarBotones(CHAT, 'Elige', BOTONES);
   await p.enviarLista(CHAT, 'Banco', 'Elegir banco', [{ id: 'BCP', title: 'BCP' }, { id: 'Otro', title: 'Otro' }]);
   await p.enviarEnlace(CHAT, 'Web', 'Abrir formulario web', 'https://brasper.com/es');
-  assert.deepEqual(llamadas[0].cuerpo.buttons, [{ type: 'reply', text: 'Continuar', id: 'continuar' }, { type: 'reply', text: 'Hablar con persona', id: 'persona' }]);
-  assert.equal(llamadas[0].cuerpo.body, 'Elige');
+  assert.deepEqual(llamadas.map((l) => l.url.split('/').pop()), ['sendList', 'sendList', 'sendText']);
+  const deBotones = llamadas[0].cuerpo.message;
+  assert.equal(deBotones.description, 'Elige');
+  assert.equal(deBotones.button, 'Elegir');
+  assert.deepEqual(deBotones.sections[0].rows, [
+    { title: 'Continuar', rowId: 'continuar', description: null },
+    { title: 'Hablar con persona', rowId: 'persona', description: null },
+  ]);
   const lista = llamadas[1].cuerpo.message;
-  assert.equal(llamadas[1].url.endsWith('/api/sendList'), true);
   assert.equal(lista.button, 'Elegir banco');
   assert.deepEqual(lista.sections[0].rows[1], { title: 'Otro', rowId: 'Otro', description: null });
-  assert.deepEqual(llamadas[2].cuerpo.buttons, [{ type: 'url', text: 'Abrir formulario web', url: 'https://brasper.com/es' }]);
+  assert.equal(llamadas[2].cuerpo.text, 'Web\nAbrir formulario web: https://brasper.com/es');
 });
 
 test('reintenta 5xx y errores de red con espera creciente y luego tiene éxito', async () => {

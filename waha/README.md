@@ -17,7 +17,7 @@ Puertos: WAHA en `127.0.0.1:3010` y el servidor en `127.0.0.1:8010` (el 3000 y e
 ```bash
 cd waha
 npm run setup                 # genera waha/.env con secretos aleatorios (no los muestra)
-docker compose up -d waha     # WAHA; en Apple Silicon usa la imagen :arm (por defecto); en x86: WAHA_TAG=latest
+docker compose up -d waha     # WAHA con NOWEB; en Apple Silicon usa la imagen :arm (por defecto); en x86: WAHA_TAG=latest
 npm run sesion                # crea la sesión "demo" con el webhook firmado (no la reinicia si ya existe)
 ```
 
@@ -61,10 +61,12 @@ Responde `{"iniciado":true}`. Si el cliente está en medio de una conversación 
 
 ## Botones y listas
 
-`WAHA_INTERACTIVOS` en `waha/.env`:
+Resultado de H0 (`docs/h0-hallazgos.md`): con el motor **NOWEB** y un número personal solo llegan las **listas** de WhatsApp; los botones de respuesta y el botón de enlace devuelven 201 pero no se entregan, y WEBJS responde 501. Por eso el motor por defecto es NOWEB y `WAHA_INTERACTIVOS` en `waha/.env` tiene dos modos:
 
-- `texto` (por defecto): las opciones salen como un menú numerado ("1. Continuar") y se acepta el número o el nombre. Funciona siempre.
-- `nativo`: usa `sendButtons` y `sendList` de WAHA. Solo actívalo después de comprobar en tu teléfono que se ven (prueba H0, `docs/h0-hallazgos.md`).
+- `nativo`: toda opción sale como lista de WhatsApp (los botones se envían como lista con el botón "Elegir"); el enlace sale como texto con la URL. Es el modo de la demo.
+- `texto`: las opciones salen como un menú numerado ("1. Continuar") y se acepta el número o el nombre. Funciona con cualquier motor.
+
+En ambos modos el cliente también puede escribir el nombre de la opción en vez de tocarla.
 
 ## MCP de WAHA (opcional, solo desarrollo)
 

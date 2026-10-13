@@ -62,11 +62,8 @@ class WahaProvider {
 
   enviarTexto(chatId, texto) { return this._enviar('/api/sendText', { chatId, text: texto }); }
 
-  enviarBotones(chatId, cuerpo, botones) {
-    if (this.interactivos === 'texto') return this.enviarTexto(chatId, renderMenu(cuerpo, botones));
-    return this._enviar('/api/sendButtons', { chatId, body: cuerpo, buttons: botones.map((b) => ({ type: 'reply', text: b.title, id: b.id })) });
-  }
-
+  // Modo nativo (H0, NOWEB, número personal): solo las listas de WhatsApp llegan. Los botones de respuesta y el botón
+  // de enlace devuelven 201 pero no se entregan, así que los botones salen como lista y el enlace como texto.
   enviarLista(chatId, cuerpo, etiqueta, filas) {
     if (this.interactivos === 'texto') return this.enviarTexto(chatId, renderMenu(cuerpo, filas));
     return this._enviar('/api/sendList', {
@@ -78,9 +75,13 @@ class WahaProvider {
     });
   }
 
+  enviarBotones(chatId, cuerpo, botones) {
+    if (this.interactivos === 'texto') return this.enviarTexto(chatId, renderMenu(cuerpo, botones));
+    return this.enviarLista(chatId, cuerpo, 'Elegir', botones);
+  }
+
   enviarEnlace(chatId, cuerpo, etiqueta, url) {
-    if (this.interactivos === 'texto') return this.enviarTexto(chatId, `${cuerpo}\n${etiqueta}: ${url}`);
-    return this._enviar('/api/sendButtons', { chatId, body: cuerpo, buttons: [{ type: 'url', text: etiqueta, url }] });
+    return this.enviarTexto(chatId, `${cuerpo}\n${etiqueta}: ${url}`);
   }
 
   // WAHA puede entregar al cliente como @lid (identificador interno de WhatsApp) en vez de su teléfono.

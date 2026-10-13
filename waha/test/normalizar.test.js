@@ -63,10 +63,16 @@ test('mensajes que no son texto (sticker, audio) llegan con texto vacío y tipo 
   assert.equal(m.tipoMensaje, 'other');
 });
 
-test('extraerOpcion lee el id del botón o fila de los eventos reales capturados en H0', () => {
-  const boton = fx('respuesta_boton');
+test('extraerOpcion lee el id de la fila tocada en el evento real capturado en H0 (NOWEB)', () => {
   const lista = fx('respuesta_lista');
-  assert.equal(typeof extraerOpcion(boton.payload), 'string');
-  assert.equal(typeof extraerOpcion(lista.payload), 'string');
+  assert.equal(extraerOpcion(lista.payload), 'BCP');
   assert.equal(extraerOpcion(fx('message_text').payload), null);
+});
+
+test('la respuesta a una lista se normaliza con el id de la fila y el título como texto', () => {
+  const m = normalizarEvento(fx('respuesta_lista'));
+  assert.equal(m.tipo, 'mensaje');
+  assert.equal(m.opcionId, 'BCP');
+  assert.equal(m.texto, 'BCP');
+  assert.equal(m.chatId, '184512345678901@lid');
 });

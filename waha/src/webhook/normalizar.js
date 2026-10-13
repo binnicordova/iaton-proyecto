@@ -2,10 +2,12 @@ const { soloDigitos } = require('../util');
 
 const EVENTOS = new Set(['message', 'session.status']);
 
+// Id de la fila tocada en una lista. Con NOWEB (probado en H0) viaja en
+// _data.message.listResponseMessage.singleSelectReply.selectedRowId y el body trae el título.
 function extraerOpcion(payload) {
-  const d = (payload && payload._data) || {};
-  const candidatos = [payload.selectedButtonId, payload.selectedRowId, d.selectedButtonId, d.selectedRowId];
-  return candidatos.find((x) => typeof x === 'string' && x) || null;
+  const lista = payload && payload._data && payload._data.message && payload._data.message.listResponseMessage;
+  const id = lista && lista.singleSelectReply && lista.singleSelectReply.selectedRowId;
+  return typeof id === 'string' && id ? id : null;
 }
 
 function tipoDeMedia(payload) {
