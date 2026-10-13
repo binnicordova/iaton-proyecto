@@ -86,3 +86,28 @@ test('los workflows del spike también son consistentes', () => {
   const todas = [...Object.keys(spike), ...claves];
   for (const f of Object.values(spike)) assert.deepEqual(validar(f, todas), [], f.key);
 });
+
+const filas = (flow, id) => flow.nodes.find((n) => n.id === id).config.list_sections.flatMap((s) => s.rows.map((r) => r.id));
+
+test('E2 ofrece bancos según la moneda: reales solo bancos de Brasil y soles solo bancos de Perú', () => {
+  const e2 = flows.E2;
+  for (const n of ['bo', 'bn']) {
+    const brl = filas(e2, `${n}_ask_BRL`);
+    const pen = filas(e2, `${n}_ask_PEN`);
+    assert.ok(brl.includes('Banco do Brasil') && !brl.includes('BCP'), `${n} BRL: ${brl}`);
+    assert.ok(pen.includes('BCP') && !pen.includes('Banco do Brasil'), `${n} PEN: ${pen}`);
+    assert.ok(filas(e2, `${n}_ask_USD`).length <= LIMITES.filas);
+  }
+});
+
+test('la lista incorrecta se reenvía por moneda al responder fuera de las opciones', () => {
+  const e2 = flows.E2;
+  const aristas = e2.edges.filter((e) => e.source === 'bo_route' && e.label === 'invalido');
+  assert.deepEqual(aristas.map((e) => e.target), ['bo_mon_set']);
+});
+
+test('el aviso fuera de horario no termina en punto tras la variable (evita "a. m..")', () => {
+  const fuera = flows.E3.nodes.find((n) => n.id === 'fuera').config.message;
+  assert.ok(!fuera.endsWith('}}.'), fuera);
+  assert.ok(fuera.includes('{{vars.proxima_verificacion}}'));
+});

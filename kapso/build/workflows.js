@@ -9,7 +9,12 @@ const MSG_SIN_TASAS = 'Ahora no puedo cotizar con seguridad. Te paso con una per
 const MONEDAS = ['BRL', 'PEN', 'USD'];
 const MONEDAS_BTN = MONEDAS.map((m) => ({ id: m, title: m }));
 // Lista de demostración: la definitiva está pendiente de BrasPer (máximo 10 filas).
-const BANCOS = ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Caixa', 'Otro'].map((b) => ({ id: b, title: b }));
+// Bancos por moneda (demostración). USD admite bancos de ambos países. Máximo 10 filas por lista.
+const BANCOS_POR_MONEDA = {
+  BRL: ['Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Caixa', 'Otro'],
+  PEN: ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Otro'],
+  USD: ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Otro'],
+};
 const ORIGEN_FONDOS = ['Ahorros', 'Venta de un bien', 'Otro'].map((o) => ({ id: o, title: o }));
 const ids = (opciones) => opciones.map((o) => o.id);
 
@@ -76,6 +81,22 @@ function elegir(f, n, { tipo, body, opciones, boton = 'Elegir', variable, motivo
   return { entrada: `${n}_ask`, ruta: `${n}_route` };
 }
 
+// Como `elegir` con lista, pero la lista depende de la moneda guardada en `monedaVar`.
+// Una respuesta fuera de las opciones vuelve a decidir por moneda y reenvía la lista correcta.
+function elegirPorMoneda(f, n, { monedaVar, body, boton = 'Elegir banco', listas, variable, motivo }) {
+  const todas = [...new Set(Object.values(listas).flat())];
+  f.api(`${n}_mon`, `route_moneda:${monedaVar}`, { edges: MONEDAS });
+  f.wait(`${n}_wait`);
+  for (const m of MONEDAS) {
+    f.list(`${n}_ask_${m}`, body, boton, listas[m].map((b) => ({ id: b, title: b })));
+    f.link(`${n}_mon`, `${n}_ask_${m}`, m).link(`${n}_ask_${m}`, `${n}_wait`);
+  }
+  f.api(`${n}_route`, `route_reply:${variable}`, { edges: [...todas, 'invalido', 'escalar'] });
+  const esc = escalar(f, `${n}_esc`, motivo);
+  f.link(`${n}_wait`, `${n}_route`).link(`${n}_route`, `${n}_mon`, 'invalido').link(`${n}_route`, esc, 'escalar');
+  return { entrada: `${n}_mon`, ruta: `${n}_route`, ids: todas };
+}
+
 function e1() {
   const f = new Flow('E1', 'BrasPer · E1 Cotiza', 'brasper-e1-cotiza', 'Etapa 1: extrae monto y monedas, cotiza y ofrece continuar.');
   f.start();
@@ -128,10 +149,10 @@ function e2() {
   f.link('init', dni.entrada);
   const of = elegir(f, 'of', { tipo: 'buttons', body: '¿De dónde provienen los fondos?', opciones: ORIGEN_FONDOS, variable: 'origen_fondos', motivo: 'origen_fondos' });
   f.link(dni.salida, of.entrada, 'valido');
-  const bo = elegir(f, 'bo', { tipo: 'list', body: '¿Desde qué banco nos envías tu dinero?', boton: 'Elegir banco', opciones: BANCOS, variable: 'banco_origen', motivo: 'banco_origen' });
+  const bo = elegirPorMoneda(f, 'bo', { monedaVar: 'moneda_origen', body: '¿Desde qué banco nos envías tu dinero?', listas: BANCOS_POR_MONEDA, variable: 'banco_origen', motivo: 'banco_origen' });
   f.linkAll(of.ruta, bo.entrada, ids(ORIGEN_FONDOS));
   f.api('cliente', 'get_client', { edges: ['con_cuenta', 'sin_cuenta'] });
-  f.linkAll(bo.ruta, 'cliente', ids(BANCOS));
+  f.linkAll(bo.ruta, 'cliente', bo.ids);
 
   // Cuenta destino guardada.
   const cu = elegir(f, 'cu', {
@@ -141,14 +162,14 @@ function e2() {
   f.link('cliente', cu.entrada, 'con_cuenta');
 
   // Cuenta nueva: banco por lista, número en texto y confirmación enmascarada.
-  const bn = elegir(f, 'bn', { tipo: 'list', body: 'Vamos a agregar tu cuenta. ¿En qué banco está?', boton: 'Elegir banco', opciones: BANCOS, variable: 'cuenta_banco_nuevo', motivo: 'banco_cuenta_nueva' });
+  const bn = elegirPorMoneda(f, 'bn', { monedaVar: 'moneda_destino', body: 'Vamos a agregar tu cuenta. ¿En qué banco está?', listas: BANCOS_POR_MONEDA, variable: 'cuenta_banco_nuevo', motivo: 'banco_cuenta_nueva' });
   f.link('cliente', bn.entrada, 'sin_cuenta').link(cu.ruta, bn.entrada, 'otra_cuenta');
   const num = pregunta(f, 'num', {
     prompt: 'Escribe el número de cuenta.', guardar: 'numero_cuenta_raw', validar: 'numero_cuenta',
     error: 'Ese número no parece válido. Escríbelo solo con dígitos.', motivo: 'numero_cuenta_invalido',
     escalarOpts: { mensaje: 'No pude validar el número de cuenta. Puedes agregarla desde el formulario web y una persona del equipo te ayudará.', cta: { body: 'Agrega tu cuenta desde la web.', label: 'Abrir formulario web', url: FORMULARIO_WEB } },
   });
-  f.linkAll(bn.ruta, num.entrada, ids(BANCOS));
+  f.linkAll(bn.ruta, num.entrada, bn.ids);
   const cf = elegir(f, 'cf', {
     tipo: 'buttons', body: 'Confirmo: {{vars.cuenta_banco_nuevo}} ••{{vars.cuenta_ultimos4}}. ¿Está a tu nombre?',
     opciones: [{ id: 'guardar', title: 'Sí, guardar' }, { id: 'corregir', title: 'Corregir' }], variable: 'confirma_cuenta', motivo: 'confirma_cuenta',
@@ -197,7 +218,7 @@ function e3() {
   f.link('cuenta', 'instr');
   f.api('horario', 'check_hours', { edges: ['abierto', 'cerrado'] });
   f.link('instr', 'horario');
-  f.text('fuera', 'Fuera de horario: tu operación se verificará {{vars.proxima_verificacion}}.');
+  f.text('fuera', 'Fuera de horario: tu operación se verificará {{vars.proxima_verificacion}}');
   const ac = elegir(f, 'ac', {
     tipo: 'buttons', body: 'Cuando termines la transferencia, toca "Ya transferí".',
     opciones: [{ id: 'ya_transferi', title: 'Ya transferí' }, { id: 'cancelar', title: 'Cancelar operación' }], variable: 'accion_e3', motivo: 'accion_e3',

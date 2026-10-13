@@ -274,3 +274,14 @@ test('el teléfono se normaliza: con y sin signo + apuntan al mismo cliente', as
   const r = await call('get_client', { vars: { moneda_destino: 'PEN' }, edges: ['con_cuenta', 'sin_cuenta'], phone: '51944686794' });
   assert.equal(r.next_edge, 'con_cuenta');
 });
+
+test('route_moneda enruta por la moneda de la variable indicada', async () => {
+  const { call } = mundo();
+  const E = ['BRL', 'PEN', 'USD'];
+  assert.equal((await call('route_moneda:moneda_origen', { vars: { moneda_origen: 'BRL' }, edges: E })).next_edge, 'BRL');
+  assert.equal((await call('route_moneda:moneda_destino', { vars: { moneda_destino: 'soles' }, edges: E })).next_edge, 'PEN');
+  assert.equal((await call('route_moneda:moneda_origen', { vars: { moneda_origen: 'usd' }, edges: E })).next_edge, 'USD');
+  // moneda desconocida o ausente: no rompe el flujo, cae en la primera arista
+  assert.equal((await call('route_moneda:moneda_origen', { vars: { moneda_origen: 'euros' }, edges: E })).next_edge, 'BRL');
+  assert.equal((await call('route_moneda:moneda_origen', { edges: E })).next_edge, 'BRL');
+});

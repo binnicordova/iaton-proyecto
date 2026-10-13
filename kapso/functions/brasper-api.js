@@ -205,6 +205,12 @@ const ACCIONES = {
 
   check_continue: async ({ vars }) => ({ vars: {}, next_edge: vars.continuar === 'si' ? 'seguir' : 'fin' }),
 
+  // Enruta por la moneda guardada en la variable `arg`; si no es válida cae en la primera arista.
+  route_moneda: async ({ vars, arg, edges }) => {
+    const m = normMoneda(vars[arg]);
+    return { vars: {}, next_edge: edges.includes(m) ? m : edges[0] };
+  },
+
   get_status: async ({ env, phone }) => {
     const op = await getActiveOp(kv(env), phone);
     if (!op) return { vars: { estado: 'sin_operacion' }, next_edge: 'e1' };
