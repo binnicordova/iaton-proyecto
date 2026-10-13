@@ -276,7 +276,7 @@ function e4() {
   f.setvar('plantilla', 'aviso_pendiente', 'plantilla_requerida');
   f.link('ventana', 'plantilla', 'cerrada');
   f.text('verificado', '✅ Pago verificado. Enviamos tu dinero a la cuenta ••{{vars.cuenta_ultimos4}}.');
-  f.text('listo', '¡Listo! Recibiste {{vars.recibe_txt}} {{vars.moneda_destino}}. Te enviamos tu comprobante por correo.');
+  f.text('listo', '¡Listo! Recibiste {{vars.recibe_txt}} {{vars.moneda_destino}}.');
   f.api('cierra', 'complete_operation');
   f.link('ruta', 'verificado', 'verificada').link('verificado', 'listo').link('listo', 'cierra');
   f.link('ruta', escalar(f, 'rech', 'pago_no_validado', { mensaje: 'No pudimos validar tu pago de la operación {{vars.operacion_id}}. Una persona del equipo te contactará.' }), 'rechazada');

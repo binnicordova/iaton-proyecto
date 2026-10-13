@@ -18,11 +18,14 @@ function cargarConfig(env) {
   if (faltan.length) throw new Error(`faltan variables en .env: ${faltan.join(', ')}`);
   const interactivos = env.WAHA_INTERACTIVOS || 'texto';
   if (!['nativo', 'texto'].includes(interactivos)) throw new Error('WAHA_INTERACTIVOS debe ser nativo o texto');
+  const comprobanteEntrega = env.COMPROBANTE_ENTREGA || 'whatsapp';
+  if (!['whatsapp', 'ninguno'].includes(comprobanteEntrega)) throw new Error('COMPROBANTE_ENTREGA debe ser whatsapp o ninguno');
   return {
     wahaBaseUrl: env.WAHA_BASE_URL || `http://127.0.0.1:${env.WAHA_PORT || 3010}`,
     wahaApiKey: env.WAHA_API_KEY,
     wahaSession: env.WAHA_SESSION || 'demo',
     interactivos,
+    comprobanteEntrega,
     hmacSecret: env.WAHA_WEBHOOK_HMAC_SECRET,
     internalKey: env.INTERNAL_API_KEY,
     anthropicApiKey: env.ANTHROPIC_API_KEY || null,

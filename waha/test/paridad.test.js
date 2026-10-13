@@ -7,6 +7,7 @@ const { cargarFlujos } = require('../src/flujos');
 const { crearLlamadorFuncion } = require('../src/puente-api');
 const { ProveedorFalso } = require('./helpers/proveedor-falso');
 const { ErrorEnvio } = require('../src/provider/waha');
+const { entregarComprobante } = require('../src/comprobante/entrega');
 const { msg, AHORA } = require('./helpers/mundo');
 
 const T = '51944686794';
@@ -63,10 +64,22 @@ test('PARIDAD: operación completa con cuenta guardada = 13 mensajes salientes y
   await m.accion('set_status', { operacion_id: 'BR-0001', estado: 'verificada' });
   assert.deepEqual(await m.motor.iniciar('E4', T, `${T}@c.us`, { operacion_id: 'BR-0001' }), { iniciado: true });
   assert.equal(e[11].texto, '✅ Pago verificado. Enviamos tu dinero a la cuenta ••9956.');
-  assert.equal(e[12].texto, '¡Listo! Recibiste 350.00 PEN. Te enviamos tu comprobante por correo.');
+  assert.equal(e[12].texto, '¡Listo! Recibiste 350.00 PEN.'); // el comprobante llega aparte, como PDF por el chat
 
   assert.equal(e.length, 13);
   assert.equal(m.entrantes(), 9);
+
+  // Después del aviso, el comprobante en PDF por el mismo chat (con los datos reales de la operación).
+  const r = await entregarComprobante({ kv: m.kv, proveedor: m.proveedor, registrar: () => {}, telefono: T, chatId: `${T}@c.us`, operacionId: 'BR-0001' });
+  assert.equal(r.enviado, true);
+  assert.equal(e.length, 14);
+  assert.equal(e[13].tipo, 'documento');
+  assert.equal(e[13].nombre, 'comprobante-BR-0001.pdf');
+  const pdf = Buffer.from(e[13].base64, 'base64');
+  for (const t of ['BR-0001', '500.00 BRL', '505.00 BRL', '350.00 PEN', '1 BRL = 0.7 PEN', 'Scotiabank \x95\x959956', 'Banco do Brasil', 'Ahorros', 'DNI \x95\x95\x95\x955678', '123456']) {
+    assert.ok(pdf.includes(Buffer.from(`(${t})`, 'latin1')), `el PDF trae "${t}"`);
+  }
+  assert.ok(!pdf.includes(Buffer.from('12345678', 'latin1')), 'el DNI no va completo');
 });
 
 test('PARIDAD: sin datos de la IA, el flujo pregunta moneda por moneda (el cliente nunca queda sin respuesta)', async () => {
