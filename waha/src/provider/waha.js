@@ -4,6 +4,7 @@ const { enmascarar, soloDigitos } = require('../util');
 class ErrorEnvio extends Error {
   constructor(mensaje, { estado = null, reintentable = false, restriccion = false } = {}) {
     super(mensaje);
+    this.name = 'ErrorEnvio';
     this.estado = estado;
     this.reintentable = reintentable;
     this.restriccion = restriccion;

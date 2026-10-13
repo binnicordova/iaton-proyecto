@@ -17,6 +17,9 @@ function leerCuerpo(req) {
   });
 }
 
+// Los ids de WAHA (WEBJS) son "false_<teléfono>@c.us_<hex>": solo se registra el sufijo.
+const idSinTelefono = (id) => String(id || '').split('_').pop();
+
 function iguales(a, b) {
   const x = Buffer.from(String(a || ''));
   const y = Buffer.from(String(b || ''));
@@ -49,9 +52,9 @@ function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch })
       await kv.put(`chat:${n.telefono}`, JSON.stringify(n.chatId));
       proveedor.marcarLeido(n.chatId);
       await motor.procesarMensaje(n);
-      almacen.registrar({ tipo: 'mensaje', mensajeId: n.mensajeId, chat: enmascarar(n.chatId), estado: 'ok', latenciaMs: Date.now() - t0 });
+      almacen.registrar({ tipo: 'mensaje', mensajeId: idSinTelefono(n.mensajeId), chat: enmascarar(n.chatId), estado: 'ok', latenciaMs: Date.now() - t0 });
     } catch (e) {
-      almacen.registrar({ tipo: 'mensaje', mensajeId: n.mensajeId, chat: enmascarar(n.chatId), estado: 'error', latenciaMs: Date.now() - t0, detalle: String(e.message).slice(0, 200) });
+      almacen.registrar({ tipo: 'mensaje', mensajeId: idSinTelefono(n.mensajeId), chat: enmascarar(n.chatId), estado: 'error', latenciaMs: Date.now() - t0, detalle: String(e.message).slice(0, 200) });
     }
   }
 

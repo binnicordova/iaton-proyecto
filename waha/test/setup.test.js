@@ -11,7 +11,8 @@ test('generarEnv crea los secretos faltantes distintos entre sí', () => {
   assert.equal(env.WAHA_SESSION, 'demo');
   assert.equal(env.WAHA_PORT, '3010');
   assert.equal(env.APP_PORT, '8010');
-  assert.equal(env.WAHA_INTERACTIVOS, 'texto');
+  assert.equal(env.WAHA_INTERACTIVOS, 'nativo'); // decisión de H0: NOWEB + listas
+  assert.equal(env.WHATSAPP_DEFAULT_ENGINE, 'NOWEB');
 });
 
 test('generarEnv conserva los valores existentes', () => {

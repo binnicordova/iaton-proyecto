@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Flow } = require('../../kapso/build/flow');
+const { ErrorEnvio } = require('../src/provider/waha');
 const { abrirDb } = require('../src/estado/db');
 const { crearMundo, msg } = require('./helpers/mundo');
 
@@ -185,4 +186,30 @@ test('lista seguida de un enlace conserva las opciones de la lista para interpre
   await motor.procesarMensaje(msg(T, 'inicio'));
   await motor.procesarMensaje(msg(T, '2'));
   assert.equal(id, 'Otro');
+});
+
+test('un fallo de envío a WAHA no borra ni escala la conversación: se conserva y el siguiente mensaje reintenta', async () => {
+  const flujos = w0((f) => { f.text('a', 'primero').text('b', 'segundo'); f.link('start', 'a').link('a', 'b'); });
+  const acciones = [];
+  const llamarFuncion = async ({ vars }) => { acciones.push(vars.api_action); return { vars: {} }; };
+  const { motor, proveedor, almacen } = crearMundo({ flujos, llamarFuncion });
+  proveedor.fallar.push(new ErrorEnvio('WAHA /api/sendText respondió 502', { estado: 502, reintentable: true }));
+  await motor.procesarMensaje(msg(T, 'hola'));
+  assert.deepEqual(proveedor.textos(), []); // no se le envió "Te paso con una persona" a nadie
+  assert.deepEqual(acciones, []); // no se registró ningún handoff
+  assert.ok(almacen.cargarEjecucion(T), 'la conversación se conserva en el nodo que falló');
+  await motor.procesarMensaje(msg(T, 'hola otra vez'));
+  assert.deepEqual(proveedor.textos(), ['primero', 'segundo']);
+  assert.equal(almacen.cargarEjecucion(T), null);
+});
+
+test('un fallo de envío en un workflow lanzado por API (E4) no escala al cliente ni deja conversación', async () => {
+  const e4 = new Flow('E4', 'E4', 'e4'); e4.start().text('t', 'aviso'); e4.link('start', 't');
+  const acciones = [];
+  const { motor, proveedor, almacen } = crearMundo({ flujos: { E4: e4 }, llamarFuncion: async ({ vars }) => { acciones.push(vars.api_action); return { vars: {} }; } });
+  proveedor.fallar.push(new ErrorEnvio('restricción', { estado: 463, restriccion: true }));
+  await motor.iniciar('E4', T, `${T}@c.us`, {});
+  assert.deepEqual(acciones, []);
+  assert.deepEqual(proveedor.textos(), []);
+  assert.equal(almacen.cargarEjecucion(T), null);
 });

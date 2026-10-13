@@ -18,8 +18,8 @@ function generarEnv(existente) {
   e.WAHA_SESSION ||= 'demo';
   e.WAHA_PORT ||= '3010';
   e.APP_PORT ||= '8010';
-  e.WAHA_INTERACTIVOS ||= 'texto';
-  e.WHATSAPP_DEFAULT_ENGINE ||= 'WEBJS';
+  e.WAHA_INTERACTIVOS ||= 'nativo'; // decisión de H0: NOWEB + listas de WhatsApp
+  e.WHATSAPP_DEFAULT_ENGINE ||= 'NOWEB';
   return `${Object.entries(e).map(([k, v]) => `${k}=${v}`).join('\n')}\n`;
 }
 

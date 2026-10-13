@@ -123,6 +123,15 @@ function crearMotor({ flujos, almacen, proveedor, llamarFuncion, extraer, ahora 
       }
       almacen.borrarEjecucion(ej.telefono);
     } catch (e) {
+      if (e && e.name === 'ErrorEnvio') {
+        // Fallo de transporte (WAHA caído, 5xx agotados, 463/475): no es culpa del cliente ni del flujo. No se escala ni se
+        // pierde la operación. En una conversación (W0) el estado queda en el nodo que falló y el siguiente mensaje reintenta;
+        // en un aviso por API (E4) no queda conversación y el backend puede volver a avisar.
+        almacen.registrar({ tipo: 'error_envio', chat: enmascarar(ej.chatId), estado: String(e.estado || 'red'), detalle: e.restriccion ? 'restriccion_whatsapp' : 'transporte' });
+        if (ej.pila[0] && ej.pila[0].flujo === 'W0') almacen.guardarEjecucion(ej.telefono, ej);
+        else almacen.borrarEjecucion(ej.telefono);
+        return;
+      }
       await escalarPorError(ej, e);
     }
   }

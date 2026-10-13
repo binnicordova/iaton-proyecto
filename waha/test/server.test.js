@@ -21,7 +21,8 @@ function flujos() {
 }
 
 async function levantar({ fetchImpl } = {}) {
-  const almacen = crearAlmacen(abrirDb(':memory:'));
+  const db = abrirDb(':memory:');
+  const almacen = crearAlmacen(db);
   const proveedor = new ProveedorFalso();
   const motor = crearMotor({ flujos: flujos(), almacen, proveedor, llamarFuncion: async () => ({ vars: {} }), extraer: async () => ({}) });
   const { servidor, inactivo } = crearServidor({ config: CONFIG, motor, almacen, proveedor, fetchImpl });
@@ -32,7 +33,7 @@ async function levantar({ fetchImpl } = {}) {
     const res = await fetch(`${base}/webhooks/waha`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Webhook-Hmac': firma || firmar(cuerpo, secreto) }, body: cuerpo });
     return { status: res.status, json: await res.json() };
   };
-  return { almacen, proveedor, inactivo, base, enviar, cerrar: () => new Promise((r) => servidor.close(r)) };
+  return { db, almacen, proveedor, inactivo, base, enviar, cerrar: () => new Promise((r) => servidor.close(r)) };
 }
 
 test('una firma inválida o ausente da 401 y no envía nada', async () => {
@@ -177,6 +178,20 @@ test('si el evento ya trae el teléfono real (remoteJidAlt), no se consulta la A
     await s.inactivo();
     assert.equal(llamadas, 0);
     assert.equal(await s.almacen.kvEnv().get('chat:51999999999', 'json'), '184512345678901@lid');
+  } finally {
+    await s.cerrar();
+  }
+});
+
+test('el registro nunca guarda el teléfono completo: ni en chat ni en mensaje_id', async () => {
+  const s = await levantar();
+  try {
+    await s.enviar(fx('message_text')); // id "false_51999999999@c.us_AAA1", chat 51999999999@c.us
+    await s.inactivo();
+    const filas = s.db.prepare("SELECT * FROM registro WHERE tipo = 'mensaje'").all();
+    assert.equal(filas.length, 1);
+    assert.equal(filas[0].mensaje_id, 'AAA1');
+    assert.ok(!JSON.stringify(filas).includes('51999999999'));
   } finally {
     await s.cerrar();
   }

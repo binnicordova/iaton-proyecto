@@ -6,6 +6,7 @@ const { crearMotor, MSG_PERSONA } = require('../src/motor/motor');
 const { cargarFlujos } = require('../src/flujos');
 const { crearLlamadorFuncion } = require('../src/puente-api');
 const { ProveedorFalso } = require('./helpers/proveedor-falso');
+const { ErrorEnvio } = require('../src/provider/waha');
 const { msg, AHORA } = require('./helpers/mundo');
 
 const T = '51944686794';
@@ -156,4 +157,24 @@ test('PARIDAD: con una operación escalada, un nuevo mensaje recibe el aviso de 
   await m.almacen.borrarEjecucion(T);
   await m.decir('hola');
   assert.equal(m.proveedor.enviados.at(-1).texto, 'Una persona del equipo ya está atendiendo tu caso.');
+});
+
+test('un hipo de WAHA al enviar las instrucciones de pago no escala la operación; el siguiente mensaje las reenvía', async () => {
+  const m = mundoReal();
+  await m.accion('seed_demo');
+  await m.decir(PRIMERO);
+  await m.decir('Continuar', { opcionId: 'continuar' });
+  await m.decir('12345678');
+  await m.decir('Ahorros', { opcionId: 'Ahorros' });
+  await m.decir('Banco do Brasil', { opcionId: 'Banco do Brasil' });
+  m.proveedor.fallar.push(new ErrorEnvio('WAHA caído', { estado: 502, reintentable: true }));
+  await m.decir('Sí, esa', { opcionId: 'si_esa' }); // crea la operación y falla al enviar "Transfiere…"
+  const op = await m.kv.get('op:BR-0001', 'json');
+  assert.notEqual(op.estado, 'escalada');
+  assert.equal(await m.kv.get(`handoff:${T}`, 'json'), null);
+  assert.ok(m.almacen.cargarEjecucion(T));
+  await m.decir('hola');
+  const textos = m.proveedor.textos();
+  assert.equal(textos.filter((x) => x.startsWith('Transfiere 505.00 BRL')).length, 1);
+  assert.equal(textos.at(-1), 'Cuando termines la transferencia, toca "Ya transferí".');
 });

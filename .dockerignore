@@ -7,3 +7,7 @@
 presentacion
 flow
 reference
+**/.capturas
+**/*.db
+**/*.db-wal
+**/*.db-shm
