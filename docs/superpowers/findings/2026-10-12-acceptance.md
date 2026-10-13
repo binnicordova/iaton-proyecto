@@ -54,4 +54,4 @@ Cambios (rama `fix/brasper-seguimiento`, 49/49 pruebas, publicados en Kapso: fun
 - **Historial del agente**: la conversación termina cuando termina la ejecución de W0 (observado a las 21:45:25 y 23:18:51), por lo que una operación nueva empieza con historial limpio. No hay opción de configuración para limitar el historial.
 - Observación: Kapso agrega por su cuenta las herramientas `handoff_to_human`, `send_notification_to_user` y `enter_waiting` al agente de E1. Con `tool_only` no hay texto libre, pero esas herramientas siguen disponibles.
 
-Pendiente de prueba en vivo: una cotización en E1 con `tool_only` y la ruta de tasa vencida en E3.
+Verificado en vivo (13-oct, 22:15 a 22:37, hora Lima): con `tool_only`, "Hola, quiero enviar 500 reales a Perú" produjo la cotización correcta sin mensajes extra. Al tocar "Ya transferí" a las 22:36 (tasa vigente hasta las 22:30), E3 avisó que la tasa venció, aceptó la foto y el número de operación, y cerró con "Una persona validará tu pago…".
