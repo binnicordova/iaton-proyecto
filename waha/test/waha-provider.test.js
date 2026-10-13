@@ -1,0 +1,90 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { WahaProvider } = require('../src/provider/waha');
+
+function proveedor(respuestas, extra = {}) {
+  const llamadas = [];
+  const esperas = [];
+  const fetchImpl = async (url, init) => {
+    llamadas.push({ url, init, cuerpo: JSON.parse(init.body) });
+    const r = respuestas.shift();
+    if (r instanceof Error) throw r;
+    return { ok: r.status >= 200 && r.status < 300, status: r.status, json: async () => r.json || {} };
+  };
+  const p = new WahaProvider({ baseUrl: 'http://waha:3000/', apiKey: 'K', session: 'demo', fetchImpl, dormir: async (ms) => { esperas.push(ms); }, ...extra });
+  return { p, llamadas, esperas };
+}
+const OK = { status: 201, json: { id: 'true_51999@c.us_X' } };
+const CHAT = '51999999999@c.us';
+const BOTONES = [{ id: 'continuar', title: 'Continuar' }, { id: 'persona', title: 'Hablar con persona' }];
+
+test('enviarTexto usa sendText con la clave y devuelve el id', async () => {
+  const { p, llamadas } = proveedor([OK]);
+  assert.equal(await p.enviarTexto(CHAT, 'hola'), 'true_51999@c.us_X');
+  assert.equal(llamadas[0].url, 'http://waha:3000/api/sendText');
+  assert.equal(llamadas[0].init.headers['X-Api-Key'], 'K');
+  assert.deepEqual(llamadas[0].cuerpo, { session: 'demo', chatId: CHAT, text: 'hola' });
+});
+
+test('modo texto: botones y lista salen como menú numerado por sendText', async () => {
+  const { p, llamadas } = proveedor([OK, OK, OK], { interactivos: 'texto' });
+  await p.enviarBotones(CHAT, 'Elige', BOTONES);
+  await p.enviarLista(CHAT, 'Banco', 'Elegir', [{ id: 'BCP', title: 'BCP' }]);
+  await p.enviarEnlace(CHAT, 'Web', 'Abrir formulario web', 'https://brasper.com/es');
+  assert.deepEqual(llamadas.map((l) => l.url.split('/').pop()), ['sendText', 'sendText', 'sendText']);
+  assert.match(llamadas[0].cuerpo.text, /1\. Continuar\n2\. Hablar con persona/);
+  assert.match(llamadas[1].cuerpo.text, /1\. BCP/);
+  assert.equal(llamadas[2].cuerpo.text, 'Web\nAbrir formulario web: https://brasper.com/es');
+});
+
+test('modo nativo: usa sendButtons, sendList y un botón url', async () => {
+  const { p, llamadas } = proveedor([OK, OK, OK], { interactivos: 'nativo' });
+  await p.enviarBotones(CHAT, 'Elige', BOTONES);
+  await p.enviarLista(CHAT, 'Banco', 'Elegir banco', [{ id: 'BCP', title: 'BCP' }, { id: 'Otro', title: 'Otro' }]);
+  await p.enviarEnlace(CHAT, 'Web', 'Abrir formulario web', 'https://brasper.com/es');
+  assert.deepEqual(llamadas[0].cuerpo.buttons, [{ type: 'reply', text: 'Continuar', id: 'continuar' }, { type: 'reply', text: 'Hablar con persona', id: 'persona' }]);
+  assert.equal(llamadas[0].cuerpo.body, 'Elige');
+  const lista = llamadas[1].cuerpo.message;
+  assert.equal(llamadas[1].url.endsWith('/api/sendList'), true);
+  assert.equal(lista.button, 'Elegir banco');
+  assert.deepEqual(lista.sections[0].rows[1], { title: 'Otro', rowId: 'Otro', description: null });
+  assert.deepEqual(llamadas[2].cuerpo.buttons, [{ type: 'url', text: 'Abrir formulario web', url: 'https://brasper.com/es' }]);
+});
+
+test('reintenta 5xx y errores de red con espera creciente y luego tiene éxito', async () => {
+  const { p, llamadas, esperas } = proveedor([{ status: 502 }, new Error('ECONNRESET'), OK]);
+  await p.enviarTexto(CHAT, 'hola');
+  assert.equal(llamadas.length, 3);
+  assert.deepEqual(esperas, [200, 400]);
+});
+
+test('no reintenta 4xx; marca como restricción los errores 463 y 475', async () => {
+  for (const [estado, restriccion] of [[400, false], [463, true], [475, true]]) {
+    const { p, llamadas } = proveedor([{ status: estado }, OK]);
+    await assert.rejects(() => p.enviarTexto(CHAT, 'hola'), (e) => e.estado === estado && e.restriccion === restriccion && e.reintentable === false);
+    assert.equal(llamadas.length, 1);
+  }
+});
+
+test('agota los reintentos y lanza el último error', async () => {
+  const { p, llamadas } = proveedor([{ status: 500 }, { status: 500 }, { status: 500 }]);
+  await assert.rejects(() => p.enviarTexto(CHAT, 'hola'), (e) => e.reintentable === true && e.estado === 500);
+  assert.equal(llamadas.length, 3);
+});
+
+test('hace una pausa tras cada envío y marcarLeido nunca lanza', async () => {
+  const { p, esperas } = proveedor([OK, { status: 500 }, { status: 500 }, { status: 500 }], { pausaMs: 700 });
+  await p.enviarTexto(CHAT, 'hola');
+  assert.deepEqual(esperas, [700]);
+  await assert.doesNotReject(() => p.marcarLeido(CHAT));
+});
+
+test('registra metadatos del envío sin el texto', async () => {
+  const eventos = [];
+  const { p } = proveedor([OK], { registrar: (e) => eventos.push(e) });
+  await p.enviarTexto(CHAT, 'secreto del cliente');
+  assert.equal(eventos.length, 1);
+  assert.equal(eventos[0].tipo, 'envio');
+  assert.equal(eventos[0].chat, '***9999');
+  assert.ok(!JSON.stringify(eventos[0]).includes('secreto del cliente'));
+});
