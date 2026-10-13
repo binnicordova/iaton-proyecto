@@ -76,8 +76,8 @@ Los textos entre llaves `{...}` los entrega una herramienta de la API.
 - **Entrada:** texto libre ("Hola, quiero enviar 500 reales a Perú") o cualquier otro mensaje.
 - **Flujo:** un nodo `agent` extrae monto, moneda de origen y moneda de destino. Luego `function get_rate_quote` y un `send_interactive` con la cotización.
 - **Mensaje:** "¡Hola! Hoy 1 BRL = {tasa} PEN. Comisión {comision}. Recibirás {recibe} PEN. Tasa asegurada hasta las {hora}."
-- **Botones de respuesta (máximo 3):** Continuar, Cambiar monto, Hablar con una persona.
-- **Enlaces:** un mensaje `cta_url` aparte por canal alternativo, porque cada `cta_url` admite un solo botón. Formulario web con la cotización cargada. El enlace a la app se agrega cuando exista su URL.
+- **Botones de respuesta (máximo 3, título de hasta 20 caracteres):** Continuar, Cambiar monto, Hablar con persona.
+- **Enlaces:** un mensaje `cta_url` aparte por canal alternativo, porque cada `cta_url` admite un solo botón. Botón "Abrir formulario web" (20 caracteres). La web aún no admite la cotización por parámetros: abre la calculadora. El enlace a la app se agrega cuando exista su URL.
 - **Respaldo:** si la extracción no obtiene los tres datos, botones de moneda de origen, moneda de destino y un monto en texto. Monto inválido: se repite la pregunta.
 - **Escala a persona:** 2 fallos seguidos, o `get_rate_quote` sin respuesta ("Ahora no puedo cotizar con seguridad. Te paso con una persona del equipo para ayudarte.").
 - **Salida:** estado `cotizada`; Continuar lleva a E2.
@@ -88,7 +88,7 @@ Una pregunta por mensaje, en este orden:
 
 1. DNI o CPF. Se valida el formato (DNI 8 dígitos, CPF 11, a confirmar con el backend).
 2. Origen de fondos, con las opciones de la imagen 2 (Ahorros, Venta de un bien, Otro). La lista definitiva está pendiente.
-3. Banco de origen, con una lista de WhatsApp de hasta 10 filas más "Otro". Solo el banco, sin número de cuenta.
+3. Banco de origen, con una lista de WhatsApp filtrada por la moneda que envía el cliente (acción `route_moneda`), con "Otro" al final. BRL: Banco do Brasil, Itaú, Bradesco, Nubank, Caixa. PEN: BCP, Interbank, BBVA, Scotiabank. USD: los de Perú y Brasil sin Caixa. Solo el banco, sin número de cuenta.
 4. Cuenta de destino. Con `get_client` y `list_accounts`: "Tengo guardada tu cuenta Banco ••9956. ¿Recibes ahí? Debe estar a tu nombre." con Sí, esa / Otra cuenta.
 
 **Cuenta nueva:** lista de banco, número de cuenta en texto, confirmación enmascarada ("Confirmo: Banco {banco} ••4821. ¿Está a tu nombre?") con Sí, guardar / Corregir, y luego `save_account`. Si el banco es "Otro" o hay 2 intentos inválidos, se envía un botón con enlace al formulario web para agregarla y volver al chat.
@@ -112,7 +112,7 @@ Una pregunta por mensaje, en este orden:
 - **Decisión:** ventana de 24 h abierta, texto libre. Cerrada, plantilla de Meta (solo producción).
 - **Mensajes:** "✅ Pago verificado. Enviamos tu dinero a la cuenta ••9956." y "¡Listo! Recibiste {recibe} PEN. Te enviamos tu comprobante por correo."
 - **Pago no validado (por confirmar):** "No pudimos validar tu pago de la operación BR-{id}. Una persona del equipo te contactará." y handoff.
-- **Consulta o problema:** botón "Hablar con una persona" y `handoff` con el resumen. El texto libre abierto lo atiende una persona hasta que exista el agente.
+- **Consulta o problema:** botón "Hablar con persona" y `handoff` con el resumen. El texto libre abierto lo atiende una persona hasta que exista el agente.
 
 ## 6. Contrato de la API
 
@@ -150,6 +150,7 @@ Una pregunta por mensaje, en este orden:
 - `api_call` inicia un workflow por HTTP con `phone_number` y variables. Con un número sandbox no se admite `recipient`; sí `phone_number`.
 - Las Kapso Functions corren en Cloudflare Workers con `env.KV` y `env.DB`.
 - El nodo `agent` retiene la ejecución hasta `complete_task`. El nodo `handoff` detiene la ejecución y deja la conversación a una persona.
+- Tras un `handoff` en un workflow hijo, el padre (W0) queda en `waiting` y el hijo en `handoff`. Para reiniciar una conversación hay que cerrar ambas ejecuciones (`ended`), además de `reset_demo`.
 - La prueba de envío y recepción del sandbox con el flujo "Respuesta de prueba sandbox" funcionó.
 
 **Por verificar antes de construir**
@@ -160,7 +161,7 @@ Una pregunta por mensaje, en este orden:
 
 ## 9. Ajuste respecto al diseño aprobado en Figma
 
-El E1 aprobado muestra cinco opciones en un solo mensaje. WhatsApp permite 3 botones de respuesta y un solo botón de enlace por mensaje, así que el spec los divide: 3 botones de respuesta (Continuar, Cambiar monto, Hablar con una persona) y un mensaje aparte con el enlace al formulario web. El enlace a la app se añade cuando exista su URL. El Figma se actualiza en consecuencia.
+El E1 aprobado muestra cinco opciones en un solo mensaje. WhatsApp permite 3 botones de respuesta y un solo botón de enlace por mensaje, así que el spec los divide: 3 botones de respuesta (Continuar, Cambiar monto, Hablar con persona) y un mensaje aparte con el enlace al formulario web. El enlace a la app se añade cuando exista su URL. El Figma se actualiza en consecuencia.
 
 ## 10. Pruebas y criterios de aceptación (demo)
 
