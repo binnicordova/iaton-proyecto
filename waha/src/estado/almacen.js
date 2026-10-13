@@ -21,8 +21,8 @@ function crearAlmacen(db) {
     borrarEjecucion(tel) { sql.borrar.run(tel); },
     marcarVisto(id) { return sql.visto.run(id, ahora()).changes === 1; },
     limpiarVistos(antesDeIso) { sql.limpiar.run(antesDeIso); },
-    registrar({ tipo, mensajeId = null, chat = null, estado = null, latenciaMs = null, detalle = null }) {
-      sql.reg.run(ahora(), tipo, mensajeId, chat, estado, latenciaMs, detalle);
+    registrar({ tipo, mensajeId = null, chat = null, estado = null, latenciaMs = null, detalle = null, ruta = null }) {
+      sql.reg.run(ahora(), tipo, mensajeId, chat, estado, latenciaMs, detalle || ruta);
     },
     // Misma forma que env.KV de Cloudflare: get(k, 'json'), put(k, string), delete(k).
     kvEnv() {

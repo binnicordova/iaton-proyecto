@@ -53,3 +53,11 @@ test('registrar guarda metadatos y nunca texto de mensajes', () => {
   assert.equal(fila.chat, '***6794');
   assert.ok(!('texto' in fila));
 });
+
+test('registrar guarda la ruta de WAHA en detalle para distinguir mensajes de sendSeen', () => {
+  const db = abrirDb(':memory:');
+  const a = crearAlmacen(db);
+  a.registrar({ tipo: 'envio', ruta: '/api/sendText', estado: '201' });
+  a.registrar({ tipo: 'envio', ruta: '/api/sendSeen', estado: '201' });
+  assert.deepEqual(db.prepare('SELECT detalle FROM registro ORDER BY id').all().map((f) => f.detalle), ['/api/sendText', '/api/sendSeen']);
+});
