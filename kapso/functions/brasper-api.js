@@ -295,7 +295,7 @@ const ACCIONES = {
   attach_proof: async ({ env, vars }) => {
     const db = kv(env);
     const op = await getOp(db, vars.operacion_id);
-    if (op) await saveOp(db, { ...op, estado: 'en_validacion', proof: { mensaje: vars.comprobante_msg_id, n_operacion: vars.n_operacion_bancaria } });
+    if (op) await saveOp(db, { ...op, estado: 'en_validacion', proof: { mensaje: vars.comprobante_msg_id, n_operacion: vars.n_operacion_bancaria, tasa_vencida: vars.tasa_vencida === 'si' } });
     return { vars: { estado: 'en_validacion' } };
   },
 

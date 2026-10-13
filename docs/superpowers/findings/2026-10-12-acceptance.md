@@ -44,3 +44,14 @@ Diferidos (sin cambio en esta entrega):
 - Menores: botones antiguos con el mismo id se aceptan; `simular_ahora` inválido devuelve 500; contadores `seq_*` no atómicos; "¡Hola!" se repite tras "Cambiar monto"; hora de vigencia en 24 h frente a a. m./p. m. en el aviso de horario.
 
 Verificación del agente (hallazgo 1 del revisor): en la prueba en vivo del criterio 5, el historial que recibió el flujo de E1 contenía solo el mensaje actual ("Hola, quiero enviar 500 reales a Perú"): Kapso abre una conversación nueva cuando la anterior termina, y la conversación previa con el DNI no se arrastró. La evidencia es parcial: no se probó una conversación larga que siga abierta tras cancelar. Riesgo residual: si en producción la conversación no termina entre operaciones, el agente podría ver mensajes anteriores. Mitigación a evaluar con la fase del agente: pasar la extracción por una variable (`last_user_input`) en lugar del historial, o cerrar la conversación al cancelar o completar.
+
+## Seguimiento posterior al PR #1
+
+Cambios (rama `fix/brasper-seguimiento`, 49/49 pruebas, publicados en Kapso: función, E3 y E1):
+
+- **Tasa vencida al tocar "Ya transferí"** (E3): se revisa la vigencia de nuevo. Si venció, se avisa al cliente, se acepta igual la constancia y se marca `proof.tasa_vencida` para que una persona confirme la tasa final. Suposición: es una decisión de bajo impacto y reversible; la alternativa (recotizar tras transferir) confundiría al cliente.
+- **Agente de E1 en `tool_only`**: el agente ya no puede enviar texto libre al cliente; solo guarda variables. Kapso lo aceptó para `claude-haiku-5-5`.
+- **Historial del agente**: la conversación termina cuando termina la ejecución de W0 (observado a las 21:45:25 y 23:18:51), por lo que una operación nueva empieza con historial limpio. No hay opción de configuración para limitar el historial.
+- Observación: Kapso agrega por su cuenta las herramientas `handoff_to_human`, `send_notification_to_user` y `enter_waiting` al agente de E1. Con `tool_only` no hay texto libre, pero esas herramientas siguen disponibles.
+
+Pendiente de prueba en vivo: una cotización en E1 con `tool_only` y la ruta de tasa vencida en E3.

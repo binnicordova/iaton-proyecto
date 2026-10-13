@@ -35,7 +35,7 @@ const AGENTE_EXTRACCION = {
   temperature: 0,
   max_iterations: 6,
   enabled_default_tools: ['save_variable', 'complete_task'],
-  message_delivery_mode: 'auto_send_assistant_text',
+  message_delivery_mode: 'tool_only',
 };
 
 // Handoff a persona: registra el motivo, avisa al cliente (con enlace opcional) y detiene la ejecución.
@@ -239,7 +239,13 @@ function e3() {
   f.wait('esp_foto');
   f.api('foto', 'media:comprobante', { edges: ['foto', 'sin_foto', 'escalar'] });
   f.text('sin_foto', 'No recibí una foto. Envíame la foto o captura del comprobante.');
-  f.link(ac.ruta, 'pide_foto', 'ya_transferi').link('pide_foto', 'esp_foto').link('esp_foto', 'foto');
+  // La tasa se revisa también al transferir: si venció, la constancia se adjunta marcada para que una persona confirme la tasa final.
+  f.api('vigencia2', 'check_tasa', { edges: ['vigente', 'vencida'] });
+  f.link(ac.ruta, 'vigencia2', 'ya_transferi').link('vigencia2', 'pide_foto', 'vigente');
+  f.setvar('marca_vencida', 'tasa_vencida', 'si');
+  f.text('aviso_vencida', 'Tu tasa asegurada venció mientras transferías. Igual recibo tu constancia: una persona confirmará la tasa final al validar tu pago.');
+  f.link('vigencia2', 'marca_vencida', 'vencida').link('marca_vencida', 'aviso_vencida').link('aviso_vencida', 'pide_foto');
+  f.link('pide_foto', 'esp_foto').link('esp_foto', 'foto');
   f.link('foto', 'sin_foto', 'sin_foto').link('sin_foto', 'esp_foto');
   f.link('foto', escalar(f, 'foto_esc', 'comprobante_no_recibido'), 'escalar');
   const nop = pregunta(f, 'nop', { prompt: 'Ahora escribe el número de operación bancaria.', guardar: 'n_operacion_raw', validar: 'n_operacion', error: 'Ese número no parece válido. Escríbelo solo con dígitos.', motivo: 'n_operacion_invalido' });

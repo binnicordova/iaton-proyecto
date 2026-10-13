@@ -323,3 +323,13 @@ test('horario de Lima: bordes de apertura y cierre', async () => {
   assert.equal((await call('check_hours', { edges: E, ahora: '2026-10-17T19:00:00Z' })).next_edge, 'cerrado'); // sáb 14:00
   assert.equal((await call('check_hours', { edges: E, ahora: '2026-10-18T19:00:00Z' })).next_edge, 'cerrado'); // dom 14:00
 });
+
+test('attach_proof guarda si la tasa había vencido al transferir', async () => {
+  const { env, call } = mundo();
+  await call('create_operation', { vars: COTIZACION });
+  await call('attach_proof', { vars: { operacion_id: 'BR-0001', comprobante_msg_id: 'w1', n_operacion_bancaria: '1234', tasa_vencida: 'si' } });
+  assert.equal((await env.KV.get('op:BR-0001', 'json')).proof.tasa_vencida, true);
+  await call('create_operation', { vars: COTIZACION });
+  await call('attach_proof', { vars: { operacion_id: 'BR-0002', comprobante_msg_id: 'w2', n_operacion_bancaria: '1234' } });
+  assert.equal((await env.KV.get('op:BR-0002', 'json')).proof.tasa_vencida, false);
+});

@@ -132,3 +132,19 @@ test('E4 cierra la operación como completada tras avisar al cliente', () => {
   const set = flows.E4.nodes.find((n) => n.id === 'cierra_set');
   assert.equal(JSON.stringify(set.config).includes('complete_operation'), true);
 });
+
+test('E3 revisa la vigencia de la tasa al tocar "Ya transferí" y avisa si venció', () => {
+  const e3 = flows.E3;
+  const desde = (src, label) => e3.edges.filter((e) => e.source === src && e.label === label).map((e) => e.target);
+  assert.deepEqual(desde('ac_route', 'ya_transferi'), ['vigencia2_set']);
+  assert.deepEqual(desde('vigencia2', 'vigente'), ['pide_foto']);
+  assert.deepEqual(desde('vigencia2', 'vencida'), ['marca_vencida']);
+  assert.deepEqual(desde('marca_vencida', 'next'), ['aviso_vencida']);
+  assert.deepEqual(desde('aviso_vencida', 'next'), ['pide_foto']);
+  assert.match(e3.nodes.find((n) => n.id === 'aviso_vencida').config.message, /venció/);
+});
+
+test('el agente de E1 solo envía mensajes por herramientas (tool_only)', () => {
+  const agente = flows.E1.nodes.find((n) => n.id === 'extraer').config;
+  assert.equal(agente.message_delivery_mode, 'tool_only');
+});
