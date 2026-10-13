@@ -1,0 +1,4 @@
+{ "id": "evt_text_1", "timestamp": 1760000000000, "event": "message", "session": "demo",
+  "me": { "id": "51988888888@c.us", "pushName": "BrasPer demo" },
+  "payload": { "id": "false_51999999999@c.us_AAA1", "timestamp": 1760000000, "from": "51999999999@c.us", "fromMe": false, "source": "app", "body": "Hola, quiero enviar 500 reales a Perú", "hasMedia": false, "_data": {} },
+  "engine": "WEBJS" }

@@ -1,0 +1,2 @@
+{ "id": "evt_ses_1", "timestamp": 1760000400000, "event": "session.status", "session": "demo",
+  "payload": { "status": "WORKING" }, "engine": "WEBJS" }

@@ -1,0 +1,16 @@
+{
+  "_nota": "PROVISIONAL: evento inventado, no capturado de WAHA. H0 lo reemplaza con el evento real.",
+  "id": "e",
+  "event": "message",
+  "session": "demo",
+  "payload": {
+    "id": "y",
+    "from": "51999999999@c.us",
+    "fromMe": false,
+    "source": "app",
+    "body": "BCP",
+    "hasMedia": false,
+    "timestamp": 1760000000,
+    "selectedRowId": "BCP"
+  }
+}

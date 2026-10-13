@@ -1,0 +1,3 @@
+{ "id": "evt_grp_1", "timestamp": 1760000300000, "event": "message", "session": "demo",
+  "payload": { "id": "false_120363000000000000@g.us_AAA4", "timestamp": 1760000300, "from": "120363000000000000@g.us", "fromMe": false, "source": "app", "body": "hola grupo", "hasMedia": false },
+  "engine": "WEBJS" }
