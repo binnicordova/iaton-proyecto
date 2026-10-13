@@ -349,7 +349,7 @@ Esta tarea produce **un informe**, no código de producto. Necesita al usuario c
 ```yaml
 services:
   waha:
-    image: devlikeapro/waha:${WAHA_TAG:-latest}
+    image: devlikeapro/waha:${WAHA_TAG:-arm}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${WAHA_PORT:-3010}:3000"
@@ -368,6 +368,8 @@ services:
 ```
 
 - [ ] **Step 2: Intentar fijar la versión y levantar WAHA**
+
+**Mac con Apple Silicon (arm64):** `devlikeapro/waha:latest` y los tags por versión no tienen imagen arm64; la documentación de WAHA indica `devlikeapro/waha:arm` (incluye Chromium; sirve para WEBJS y NOWEB). Es el valor por defecto de `WAHA_TAG` en el compose; en x86 usa `WAHA_TAG=latest`.
 
 Run: `cd waha && docker pull devlikeapro/waha:2026.9.2 2>&1 | tail -2`
 Si el tag existe: añade `WAHA_TAG=2026.9.2` a `waha/.env`. Si no existe, usa `latest`, y después de levantar anota el digest con `docker image inspect devlikeapro/waha --format '{{index .RepoDigests 0}}'` en `h0-hallazgos.md`.
