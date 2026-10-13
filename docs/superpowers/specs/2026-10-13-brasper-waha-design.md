@@ -168,9 +168,14 @@ Riesgos:
 5. **Datos fuera de la máquina:** el texto que se envía a la IA sale a la API de Anthropic aunque WAHA sea local.
 6. La API de BrasPer, las tasas, la cuenta y el cliente siguen siendo ficticios (demo).
 
-## 11. Pendientes por decidir
+## 11. Decisiones de H0 y pendientes
 
-- Motor definitivo (WEBJS o NOWEB) y valor de `WAHA_INTERACTIVOS`: lo fija H0.
-- Que David aporte `ANTHROPIC_API_KEY` y el número a enlazar.
-- Si se conecta MCP de WAHA a Claude Code (por defecto, no).
-- Los pendientes de producto del spec original (§11) siguen vigentes: correo, Pix, horarios y feriados, límites de monto, listas definitivas, plantillas de Meta, número real.
+Decidido en H0 (ver `waha/docs/h0-hallazgos.md`):
+- Motor **NOWEB**. WEBJS responde 501 a botones y listas.
+- `WAHA_INTERACTIVOS=nativo`: todo como lista de WhatsApp (los botones salen como lista con el botón "Elegir"); el enlace sale como texto con la URL. Los botones de respuesta y el botón de enlace no se entregan en un número personal. `texto` (menú numerado) queda de respaldo.
+- La identidad del cliente es el teléfono real, tomado de `_data.key.remoteJidAlt` cuando el remitente llega como `@lid`; la API de LIDs de WAHA queda de respaldo.
+
+Pendientes:
+- Que David decida si se conecta MCP de WAHA a Claude Code (por defecto, no; exige Redis).
+- Probar con WhatsApp Business: podría permitir botones reales.
+- Los pendientes de producto del spec original (§11) siguen vigentes: correo del cliente, Pix, reconocimiento de cliente recurrente, horarios y feriados, límites de monto, listas definitivas, plantillas de Meta, número real.
