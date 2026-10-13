@@ -1,5 +1,5 @@
 // Arma los datos del comprobante a partir de la operación guardada por brasper-api (op.snap y op.proof).
-// El documento del cliente va siempre enmascarado. Lo que falta queda en `undefined` y el PDF muestra un guion.
+// El documento va completo: es el comprobante del propio cliente y le llega a su chat. Lo que falta queda en `undefined` y el PDF muestra un guion.
 
 const FORMATO_LIMA = new Intl.DateTimeFormat('es-PE', {
   timeZone: 'America/Lima', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
@@ -11,12 +11,6 @@ function fechaLima(iso) {
   const p = Object.fromEntries(FORMATO_LIMA.formatToParts(f).map((x) => [x.type, x.value]));
   return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
 }
-
-// Deja visibles solo los últimos 4 caracteres; si hay 4 o menos, enmascara todo.
-const enmascarar = (doc) => {
-  const s = String(doc);
-  return s.length > 4 ? '•'.repeat(s.length - 4) + s.slice(-4) : '•'.repeat(s.length);
-};
 
 const conMoneda = (monto, moneda) => (monto ? `${monto} ${moneda || ''}`.trim() : undefined);
 
@@ -52,7 +46,7 @@ function datosComprobante(op) {
         filas: [
           ['Banco de origen', s.banco_origen],
           ['Origen de fondos', s.origen_fondos],
-          ['Documento', s.dni_cpf ? `${s.tipo_doc || 'DNI'} ${enmascarar(s.dni_cpf)}` : undefined],
+          ['Documento', s.dni_cpf ? `${s.tipo_doc || 'DNI'} ${s.dni_cpf}` : undefined],
           ['N.º de operación bancaria', p.n_operacion],
         ],
       },

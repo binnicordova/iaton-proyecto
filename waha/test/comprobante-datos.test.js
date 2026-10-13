@@ -31,13 +31,12 @@ test('arma el comprobante con los datos de la operación, la fecha en hora de Li
   assert.equal(fila(d, 'Origen', 'N.º de operación bancaria'), '123456');
 });
 
-test('el documento del cliente va enmascarado y nunca completo', () => {
-  assert.equal(fila(datosComprobante(OP), 'Origen', 'Documento'), 'DNI ••••5678');
+test('el documento del cliente va completo (es su propio comprobante), con el tipo de documento', () => {
+  assert.equal(fila(datosComprobante(OP), 'Origen', 'Documento'), 'DNI 12345678');
   const cpf = datosComprobante({ ...OP, snap: { ...OP.snap, dni_cpf: '12345678901', tipo_doc: 'CPF' } });
-  assert.equal(fila(cpf, 'Origen', 'Documento'), 'CPF •••••••8901');
-  const corto = datosComprobante({ ...OP, snap: { ...OP.snap, dni_cpf: '123' } });
-  assert.equal(fila(corto, 'Origen', 'Documento'), 'DNI •••');
-  assert.ok(!JSON.stringify(datosComprobante(OP)).includes('12345678'));
+  assert.equal(fila(cpf, 'Origen', 'Documento'), 'CPF 12345678901');
+  const sinTipo = datosComprobante({ ...OP, snap: { ...OP.snap, tipo_doc: undefined } });
+  assert.equal(fila(sinTipo, 'Origen', 'Documento'), 'DNI 12345678');
 });
 
 test('con una operación incompleta no falla: los datos que faltan quedan vacíos para que el PDF muestre un guion', () => {

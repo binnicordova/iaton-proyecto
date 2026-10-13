@@ -76,10 +76,9 @@ test('PARIDAD: operación completa con cuenta guardada = 13 mensajes salientes y
   assert.equal(e[13].tipo, 'documento');
   assert.equal(e[13].nombre, 'comprobante-BR-0001.pdf');
   const pdf = Buffer.from(e[13].base64, 'base64');
-  for (const t of ['BR-0001', '500.00 BRL', '505.00 BRL', '350.00 PEN', '1 BRL = 0.7 PEN', 'Scotiabank \x95\x959956', 'Banco do Brasil', 'Ahorros', 'DNI \x95\x95\x95\x955678', '123456']) {
+  for (const t of ['BR-0001', '500.00 BRL', '505.00 BRL', '350.00 PEN', '1 BRL = 0.7 PEN', 'Scotiabank \x95\x959956', 'Banco do Brasil', 'Ahorros', 'DNI 12345678', '123456']) {
     assert.ok(pdf.includes(Buffer.from(`(${t})`, 'latin1')), `el PDF trae "${t}"`);
   }
-  assert.ok(!pdf.includes(Buffer.from('12345678', 'latin1')), 'el DNI no va completo');
 });
 
 test('PARIDAD: sin datos de la IA, el flujo pregunta moneda por moneda (el cliente nunca queda sin respuesta)', async () => {
