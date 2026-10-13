@@ -9,6 +9,7 @@ const DIEZ_MIN_MS = 10 * 60 * 1000;
 function crearVigilante({ almacen, firestore, funciones, motor, proveedor, ahora = () => new Date(), registrar = () => {}, intervaloMs = 20000 }) {
   const ultimaRevision = new Map(); // ordenId → ms; pasados los 10 minutos se revisa una vez por minuto
   let temporizador = null;
+  let enCurso = false; // el temporizador no lanza una revisión nueva mientras la anterior sigue (evita avisos duplicados)
 
   async function avisar(s, orden, evento) {
     const r = await motor.iniciar('E4', s.telefono, s.chatId, {
@@ -67,13 +68,17 @@ function crearVigilante({ almacen, firestore, funciones, motor, proveedor, ahora
 
   // Una revisión de todas las órdenes abiertas. Un fallo en una no impide revisar las demás.
   async function tick() {
-    for (const s of almacen.seguimientosAbiertos()) {
-      try {
-        await revisar(s);
-      } catch (e) {
-        registrar({ tipo: 'error_seguimiento', estado: String((e && (e.estado || e.codigo)) || ''), detalle: String((e && e.message) || e).slice(0, 120) });
+    if (enCurso) return;
+    enCurso = true;
+    try {
+      for (const s of almacen.seguimientosAbiertos()) {
+        try {
+          await revisar(almacen.seguimiento(s.ordenId) || s);
+        } catch (e) {
+          registrar({ tipo: 'error_seguimiento', estado: String((e && (e.estado || e.codigo)) || ''), detalle: String((e && e.message) || e).slice(0, 120) });
+        }
       }
-    }
+    } finally { enCurso = false; }
   }
 
   function iniciar() {

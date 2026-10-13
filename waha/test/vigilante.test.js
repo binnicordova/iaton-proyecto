@@ -140,3 +140,38 @@ test('iniciar y detener manejan el temporizador sin dejar el proceso colgado', a
   await new Promise((r) => setTimeout(r, 40));
   assert.equal(llamadas, n);
 });
+
+test('dos revisiones solapadas (una lenta y el temporizador que lanza otra) no duplican el aviso', () => conMundo(async (m) => {
+  await validando(m);
+  m.falso.aprobar('BR-0001');
+  const v = vigilante(m);
+  await Promise.all([v.tick(), v.tick(), v.tick()]);
+  assert.equal(textos(m).filter((t) => t.startsWith('✅ Pago verificado')).length, 1);
+}));
+
+test('un 503 de Firestore al leer la orden no cierra el seguimiento: se reintenta y el aviso llega', () => conMundo(async (m) => {
+  await validando(m);
+  m.falso.aprobar('BR-0001');
+  const v = vigilante(m);
+  m.falso.fallar('/orders/BR-0001', { estado: 503, veces: 2, cuerpo: JSON.stringify({ error: { code: 503, status: 'UNAVAILABLE' } }) });
+  await v.tick();
+  assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0);
+  await v.tick();
+  assert.equal(m.almacen.seguimiento('BR-0001').estadoAvisado, 'approved');
+}));
+
+test('si el ticket de un pago rechazado no se puede abrir por la red, no se manda el texto de rechazo: se reintenta entero, una sola vez', () => conMundo(async (m) => {
+  await validando(m);
+  m.falso.rechazar('BR-0001', 'El monto transferido no coincide');
+  const v = vigilante(m);
+  m.falso.fallar('/fn/requesthuman', { estado: 502, veces: 3 });
+  await v.tick();
+  await v.tick();
+  assert.ok(!textos(m).some((t) => t.startsWith('No pudimos validar')), 'el rechazo no se avisa a medias');
+  assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0);
+  await v.tick(); // la red vuelve
+  await v.tick();
+  assert.equal(textos(m).filter((t) => t.startsWith('No pudimos validar')).length, 1);
+  assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 1);
+  assert.equal(m.falso.tickets.size, 1);
+}));

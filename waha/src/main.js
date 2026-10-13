@@ -11,7 +11,12 @@ const { ensamblar } = require('./ensamblar');
 async function main() {
   const config = cargarConfig({ ...cargarEnvDeArchivos(path.join(__dirname, '..')), ...process.env });
   const almacen = crearAlmacen(abrirDb(config.dbPath));
-  almacen.limpiarVistos(new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString());
+  const limpiar = () => {
+    almacen.limpiarVistos(new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString());
+    almacen.limpiarEjecuciones(new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+  };
+  limpiar();
+  setInterval(limpiar, 3600 * 1000).unref();
   const proveedor = new WahaProvider({
     baseUrl: config.wahaBaseUrl, apiKey: config.wahaApiKey, session: config.wahaSession,
     interactivos: config.interactivos, pausaMs: config.pausaEnvioMs, registrar: (e) => almacen.registrar(e),

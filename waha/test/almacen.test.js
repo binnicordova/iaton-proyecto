@@ -105,3 +105,27 @@ test('seguimiento(ordenId) devuelve la fila, esté abierta o cerrada, o null', (
   assert.equal(a.seguimiento('BR-0001').cerrado, 1);
   assert.equal(a.seguimiento('BR-0001').telefono, '519');
 });
+
+test('limpiarEjecuciones borra las conversaciones sin actividad desde antes del límite y deja las recientes', () => {
+  const db = abrirDb(':memory:');
+  const a = crearAlmacen(db);
+  a.guardarEjecucion('519', { vars: { doc_raw: '12345678' } });
+  a.guardarEjecucion('518', { vars: {} });
+  db.prepare("UPDATE conversaciones SET actualizado = '2026-10-01T00:00:00.000Z' WHERE telefono = '519'").run();
+  a.limpiarEjecuciones('2026-10-12T00:00:00.000Z');
+  assert.equal(a.cargarEjecucion('519'), null);
+  assert.ok(a.cargarEjecucion('518'));
+});
+
+test('la base y sus archivos auxiliares quedan con permisos 600', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'brasper-db-'));
+  const ruta = path.join(dir, 'x', 'b.db');
+  const a = crearAlmacen(abrirDb(ruta));
+  a.guardarEjecucion('519', { vars: {} });
+  for (const f of [ruta, `${ruta}-wal`, `${ruta}-shm`]) if (fs.existsSync(f)) assert.equal(fs.statSync(f).mode & 0o777, 0o600, f);
+  assert.ok(fs.existsSync(`${ruta}-wal`));
+  fs.rmSync(dir, { recursive: true, force: true });
+});

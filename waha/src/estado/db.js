@@ -4,6 +4,9 @@ const { DatabaseSync } = require('node:sqlite');
 
 function abrirDb(ruta) {
   if (ruta !== ':memory:') fs.mkdirSync(path.dirname(ruta), { recursive: true });
+  // La base guarda tokens de renovación y datos de conversaciones en curso: solo el dueño puede leerla.
+  // SQLite crea los archivos -wal y -shm con los permisos de la base.
+  if (ruta !== ':memory:') { fs.closeSync(fs.openSync(ruta, 'a', 0o600)); fs.chmodSync(ruta, 0o600); }
   const db = new DatabaseSync(ruta);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 3000;');
   db.exec(`

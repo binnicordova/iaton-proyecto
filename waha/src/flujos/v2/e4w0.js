@@ -8,10 +8,14 @@ function e4() {
   f.api('ev', 'route_evento', { edges: ['aprobada', 'rechazada', 'otro'] });
   f.link('start', 'ev');
   f.text('aprobada', '✅ Pago verificado. Enviamos tu dinero a la cuenta ••{{vars.destino_ult4}}.');
+  // El ticket se abre antes de escribir al cliente: si la red falla, no se manda un rechazo a medias y el vigilante reintenta todo junto.
+  f.api('rech_reg', 'handoff_to_human:pago_no_validado');
   f.text('rech', 'No pudimos validar tu pago de la operación {{vars.operacion_id}}: {{vars.motivo}}.');
+  f.text('rech_msg', 'Una persona del equipo te contactará.{{vars.cola_texto}}');
+  f.handoff('rech_fin');
   f.setvar('nada', 'evento_ignorado', 'si');
-  f.link('ev', 'aprobada', 'aprobada').link('ev', 'rech', 'rechazada').link('ev', 'nada', 'otro');
-  f.link('rech', escalar(f, 'rech_esc', 'pago_no_validado', { mensaje: 'Una persona del equipo te contactará.' }));
+  f.link('ev', 'aprobada', 'aprobada').link('ev', 'rech_reg', 'rechazada').link('ev', 'nada', 'otro');
+  f.link('rech_reg', 'rech').link('rech', 'rech_msg').link('rech_msg', 'rech_fin');
   return f;
 }
 

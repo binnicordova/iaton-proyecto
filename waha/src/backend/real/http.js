@@ -13,9 +13,11 @@ function leerJson(texto) {
 function errorDeRespuesta(estado, json) {
   const err = json && json.error;
   const mensaje = err && typeof err.message === 'string' ? err.message : '';
-  const codigo = CODIGO_FUNCION.test(mensaje) || CODIGO_IDENTIDAD.test(mensaje) ? mensaje : (err && err.status) || null;
-  if (codigo) return new ErrorBackend(`Firebase respondió ${estado} (${codigo})`, { codigo, estado, detalles: (err && err.details) || null });
-  return new ErrorBackend(`Firebase respondió ${estado}`, { estado, transporte: estado >= 500 || estado === 429 });
+  const caido = estado >= 500 || estado === 429; // UNAVAILABLE, INTERNAL, RESOURCE_EXHAUSTED…: el servicio falló, no el negocio
+  // Un código estable de la función (minúsculas con guiones) es siempre un resultado de negocio, aunque venga con 5xx.
+  const codigo = CODIGO_FUNCION.test(mensaje) || (CODIGO_IDENTIDAD.test(mensaje) && !caido) ? mensaje : (err && err.status) || null;
+  if (codigo) return new ErrorBackend(`Firebase respondió ${estado} (${codigo})`, { codigo, estado, detalles: (err && err.details) || null, transporte: caido && !CODIGO_FUNCION.test(mensaje) });
+  return new ErrorBackend(`Firebase respondió ${estado}`, { estado, transporte: caido });
 }
 
 async function unIntento({ url, metodo, encabezados, cuerpo, tipoCuerpo, tipoContenido, timeoutMs, fetchImpl }) {

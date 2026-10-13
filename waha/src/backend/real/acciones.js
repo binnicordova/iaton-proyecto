@@ -149,7 +149,9 @@ function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, de
         orden = await funciones.llamar(phone, 'createOrder', datos);
       } catch (e) {
         if (!(e instanceof ErrorBackend)) throw e;
-        const previas = (e.transporte || e.codigo === 'quote-already-used') ? await firestore.ordenesPorCotizacion(phone, vars.quote_id).catch(() => []) : [];
+        const dudoso = e.transporte || ['quote-already-used', 'quote-expired', 'quote-not-found'].includes(e.codigo);
+        // La orden pudo crearse antes de que se perdiera la respuesta: se consulta antes de recotizar. Si la consulta falla por la red, no se adivina.
+        const previas = dudoso ? await firestore.ordenesPorCotizacion(phone, vars.quote_id).catch((e2) => { if (!esNegocio(e2)) throw e2; return []; }) : [];
         if (previas.length) orden = previas[0];
         else if (e.transporte) throw e;
         else {
@@ -208,7 +210,11 @@ function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, de
         if (e.transporte) { if (await confirmar().catch(() => false)) ok = true; else throw e; }
         else {
           const mapa = { 'operation-no-duplicate': 'duplicado', 'proof-not-uploaded': 'sin_subida', 'invalid-proof-path': 'sin_subida', 'proof-too-large': 'sin_subida', 'invalid-operation-no': 'invalido' };
-          if (e.codigo === 'order-not-pending') return { vars: {}, next_edge: (await confirmar()) ? 'ya_recibido' : 'escalar' };
+          if (e.codigo === 'order-not-pending') {
+            if (!(await confirmar())) return { vars: {}, next_edge: 'escalar' };
+            almacen.abrirSeguimiento({ ordenId: vars.operacion_id, telefono: phone, chatId, creado: ahora().toISOString() }); // no-op si ya existe
+            return { vars: {}, next_edge: 'ya_recibido' };
+          }
           return { vars: {}, next_edge: mapa[e.codigo] || 'escalar' };
         }
       }
@@ -250,7 +256,7 @@ function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, de
       const seg = almacen.seguimiento(ultima.ordenId);
       if (seg && seg.cerrado) return { vars: { estado: 'sin_operacion' }, next_edge: 'e1' };
       const o = await leerOrden(phone, ultima.ordenId);
-      if (!o || o.status === 'cancelled') return { vars: { estado: 'sin_operacion' }, next_edge: 'e1' };
+      if (!o || ['cancelled', 'rejected', 'exported'].includes(o.status)) return { vars: { estado: 'sin_operacion' }, next_edge: 'e1' };
       if (o.status === 'pending') return { vars: { ...varsOrden(o), estado: 'pending' }, next_edge: 'e3' };
       return { vars: { ...varsOrden(o), estado: o.status, estado_texto: TEXTO_ESTADO[o.status] || o.status }, next_edge: 'estado' };
     },

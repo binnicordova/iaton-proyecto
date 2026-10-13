@@ -329,3 +329,32 @@ test('las acciones genéricas se delegan al simulador y una arista no declarada 
   assert.equal((await m.llamar('validate:monto', { monto_raw: '1.500,50' }, { edges: ['valido', 'invalido', 'escalar'] })).vars.monto, 1500.5);
   await assert.rejects(() => m.llamar('route_evento', { evento: 'aprobada' }, { edges: ['rechazada'] }), /edge_no_declarado/);
 }));
+
+test('order_create: una cotización vencida cuya orden ya existe recupera la orden y no la duplica', () => conMundo(async (m) => {
+  const q = (await m.llamar('quote_create', COTIZACION, { edges: OK })).vars;
+  const E = ['ok', 'quote_expirada', 'requiere_persona', 'dato_invalido', 'sin_servicio'];
+  await m.llamar('order_create', { ...COTIZACION, ...q, ...DATOS }, { edges: E });
+  m.falso.avanzar(20); // la cotización (15 min) ya venció
+  const otra = await m.llamar('order_create', { ...COTIZACION, ...q, ...DATOS }, { edges: E });
+  assert.equal(otra.next_edge, 'ok');
+  assert.equal(otra.vars.operacion_id, 'BR-0001');
+  assert.equal(m.falso.ordenes.size, 1);
+}));
+
+test('proof_submit: si el comprobante ya estaba recibido, igual queda el seguimiento abierto para avisar y entregar el recibo', () => conMundo(async (m) => {
+  m.media.usar(jpeg());
+  const v = await conOrden(m);
+  const foto = await m.llamar('proof_upload', v, { edges: EDGES_FOTO, wa: FOTO() });
+  m.falso.ordenes.get('BR-0001').status = 'validating'; // el pago se registró en un intento anterior cuya respuesta se perdió
+  assert.equal(m.almacen.seguimiento('BR-0001'), null);
+  const r = await m.llamar('proof_submit', { ...v, ...foto.vars, operacion_no: 'AB-1234' }, { edges: ['ok', 'duplicado', 'sin_subida', 'ya_recibido', 'invalido'] });
+  assert.equal(r.next_edge, 'ya_recibido');
+  assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0);
+}));
+
+test('get_status: con la orden exportada (solo falta la factura) el cliente puede empezar otra operación', () => conMundo(async (m) => {
+  const E = ['e1', 'e3', 'estado', 'escalada'];
+  await conOrden(m);
+  m.falso.ordenes.get('BR-0001').status = 'exported';
+  assert.equal((await m.llamar('get_status', {}, { edges: E })).next_edge, 'e1');
+}));

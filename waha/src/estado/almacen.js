@@ -4,6 +4,7 @@ function crearAlmacen(db) {
     cargar: db.prepare('SELECT ejecucion FROM conversaciones WHERE telefono = ?'),
     guardar: db.prepare('INSERT INTO conversaciones (telefono, ejecucion, actualizado) VALUES (?, ?, ?) ON CONFLICT(telefono) DO UPDATE SET ejecucion = excluded.ejecucion, actualizado = excluded.actualizado'),
     borrar: db.prepare('DELETE FROM conversaciones WHERE telefono = ?'),
+    limpiarEj: db.prepare('DELETE FROM conversaciones WHERE actualizado < ?'),
     visto: db.prepare('INSERT OR IGNORE INTO eventos_vistos (id, visto) VALUES (?, ?)'),
     limpiar: db.prepare('DELETE FROM eventos_vistos WHERE visto < ?'),
     kvGet: db.prepare('SELECT valor FROM kv WHERE clave = ?'),
@@ -30,6 +31,8 @@ function crearAlmacen(db) {
     borrarEjecucion(tel) { sql.borrar.run(tel); },
     marcarVisto(id) { return sql.visto.run(id, ahora()).changes === 1; },
     limpiarVistos(antesDeIso) { sql.limpiar.run(antesDeIso); },
+    // Una conversación abandonada puede dejar datos personales a medias en el estado: se borra pasado el límite.
+    limpiarEjecuciones(antesDeIso) { sql.limpiarEj.run(antesDeIso); },
     registrar({ tipo, mensajeId = null, chat = null, estado = null, latenciaMs = null, detalle = null, ruta = null }) {
       sql.reg.run(ahora(), tipo, mensajeId, chat, estado, latenciaMs, detalle || ruta);
     },

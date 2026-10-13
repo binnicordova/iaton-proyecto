@@ -95,3 +95,14 @@ test('agota los reintentos y lanza el último error de transporte', async () => 
   assert.equal(e.transporte, true);
   assert.equal(llamadas.length, 2);
 });
+
+test('un 5xx o 429 con cuerpo JSON (UNAVAILABLE, INTERNAL, RESOURCE_EXHAUSTED) es de transporte y se reintenta', async () => {
+  for (const [estado, status] of [[503, 'UNAVAILABLE'], [500, 'INTERNAL'], [429, 'RESOURCE_EXHAUSTED']]) {
+    const { fetchImpl, llamadas } = conRespuestas(respuesta(estado, { error: { status, message: status } }), respuesta(200, { result: 1 }));
+    const r = await pedir({ url: 'http://x', cuerpo: {}, fetchImpl, reintentos: 1, dormir: sinEspera });
+    assert.equal(r.json.result, 1, `${estado} se reintenta`);
+    assert.equal(llamadas.length, 2);
+    const e = await falla(() => pedir({ url: 'http://x', fetchImpl: conRespuestas(respuesta(estado, { error: { status, message: status } })).fetchImpl }));
+    assert.equal(e.transporte, true, `${estado} ${status} es de transporte`);
+  }
+});
