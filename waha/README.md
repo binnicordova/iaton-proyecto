@@ -68,7 +68,7 @@ Responde `{"iniciado":true}`. Si el cliente está en medio de una conversación 
 
 ## MCP de WAHA (opcional, solo desarrollo)
 
-No forma parte del producto ni del camino de un mensaje. Si lo conectas a Claude Code, crea una app de MCP de la sesión con permisos de **solo lectura** y nunca uses la clave de administración:
+**Apagado por defecto.** En esta versión de WAHA, activar las apps (`WAHA_APPS_ENABLED=True`, necesario para MCP) exige además Redis (`REDIS_URL`) y la clave en texto plano (`WAHA_API_KEY_PLAIN`); sin Redis el contenedor se cierra al arrancar. Para usarlo, añade un servicio Redis al compose y esas tres variables al servicio `waha`. No forma parte del producto ni del camino de un mensaje. Si lo conectas a Claude Code, crea una app de MCP de la sesión con permisos de **solo lectura** y nunca uses la clave de administración:
 
 ```bash
 curl -s -X POST http://127.0.0.1:3010/api/apps -H "X-Api-Key: $WAHA_API_KEY" -H "Content-Type: application/json" \

@@ -19,6 +19,8 @@ const { cargarConfig, cargarEnvDeArchivos } = require('../config');
       },
     }),
   });
-  console.log(`Creación de la sesión: HTTP ${r.status}. Webhook hacia ${url}. Escanea el QR desde el panel de WAHA.`);
+  console.log(`Creación de la sesión: HTTP ${r.status}. Webhook hacia ${url}.`);
   if (!r.ok) process.exit(1);
+  const inicio = await fetch(`${c.wahaBaseUrl}/api/sessions/${c.wahaSession}/start`, { method: 'POST', headers: cab });
+  console.log(`Inicio de la sesión: HTTP ${inicio.status}. Escanea el QR desde el panel de WAHA (${c.wahaBaseUrl}/dashboard).`);
 })().catch((e) => { console.error(e.message); process.exit(1); });

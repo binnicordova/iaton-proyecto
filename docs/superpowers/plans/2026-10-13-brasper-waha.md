@@ -27,6 +27,8 @@
 
 ## Desviaciones menores respecto al spec
 
+0. **MCP de WAHA apagado por defecto:** `WAHA_APPS_ENABLED=True` hace que la imagen exija Redis (`REDIS_URL`, BullMQ) y `WAHA_API_KEY_PLAIN`; sin Redis el contenedor se cierra en bucle (verificado en la ejecución). Se quitó del compose; el MCP queda como opcional documentado en el README.
+
 1. **Puertos 3010 (WAHA) y 8010 (servidor)** en lugar de 3000 y 8000: en la Mac de David esos dos ya están ocupados por otros procesos. Se cambian con `WAHA_PORT` y `APP_PORT`.
 2. **La tabla `kv` no lleva columna de vencimiento:** `brasper-api.js` nunca la usa (solo `get`, `put` y `delete`).
 3. **Un secreto más, `INTERNAL_API_KEY`,** protege `POST /internal/avisos`. La clave de MCP no se genera aquí: la crea WAHA si David conecta MCP (opcional, solo lectura).
@@ -355,7 +357,6 @@ services:
       - "127.0.0.1:${WAHA_PORT:-3010}:3000"
     environment:
       WAHA_API_KEY: ${WAHA_API_KEY}
-      WAHA_APPS_ENABLED: "True"
       WHATSAPP_DEFAULT_ENGINE: ${WHATSAPP_DEFAULT_ENGINE:-WEBJS}
       WAHA_DASHBOARD_ENABLED: "true"
       WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME}
