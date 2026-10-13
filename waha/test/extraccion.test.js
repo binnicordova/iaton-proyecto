@@ -20,6 +20,7 @@ test('extrae monto y monedas del primer mensaje y llama a la API con esquema cer
   assert.equal(l.url, 'https://api.anthropic.com/v1/messages');
   assert.equal(l.init.headers['x-api-key'], 'sk-test');
   assert.equal(l.cuerpo.model, 'claude-haiku-5-5');
+  assert.equal('temperature' in l.cuerpo, false, 'la API rechaza temperature para claude-haiku-5-5 (HTTP 400)');
   assert.equal(l.cuerpo.tools.length, 1);
   assert.equal(l.cuerpo.tools[0].name, 'guardar_datos');
   assert.deepEqual(l.cuerpo.tool_choice, { type: 'tool', name: 'guardar_datos' });

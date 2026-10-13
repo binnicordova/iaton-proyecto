@@ -100,7 +100,7 @@ Otros detalles:
 
 ## 6. IA y estado
 
-**Extracción (nodo `agent` de E1).** Una sola llamada a la API de Anthropic (`claude-haiku-5-5`, temperatura 0) con una herramienta `guardar_datos` de esquema cerrado: `monto` (número positivo), `moneda_origen` y `moneda_destino` (`BRL`, `PEN`, `USD`). Sin otras herramientas ni acceso a WAHA, estado o red. La salida se revalida con `parseMonto` y `normMoneda`.
+**Extracción (nodo `agent` de E1).** Una sola llamada a la API de Anthropic (`claude-haiku-5-5`; sin `temperature`, porque la API lo rechaza para este modelo con HTTP 400) con una herramienta `guardar_datos` de esquema cerrado: `monto` (número positivo), `moneda_origen` y `moneda_destino` (`BRL`, `PEN`, `USD`). Sin otras herramientas ni acceso a WAHA, estado o red. La salida se revalida con `parseMonto` y `normMoneda`.
 - Ante fallo, demora (unos segundos) o falta de clave, devuelve "datos incompletos" y el flujo sigue por su camino actual de preguntar paso a paso. El cliente nunca queda sin respuesta.
 - La clave `ANTHROPIC_API_KEY` va en `.env`; la aporta David.
 - Costo estimado (no medido): ~600 tokens de entrada y ~100 de salida, ~US$0.0001 por conversación.

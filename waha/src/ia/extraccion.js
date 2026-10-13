@@ -51,7 +51,7 @@ function crearExtractor({ apiKey, fetchImpl = fetch, timeoutMs = 6000, modelo = 
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
-          model: modelo, max_tokens: 200, temperature: 0, system: SISTEMA,
+          model: modelo, max_tokens: 200, system: SISTEMA,
           tools: [HERRAMIENTA], tool_choice: { type: 'tool', name: 'guardar_datos' },
           messages: [{ role: 'user', content: t.slice(0, 1000) }],
         }),

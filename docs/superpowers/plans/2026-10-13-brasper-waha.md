@@ -2074,6 +2074,7 @@ test('extrae monto y monedas del primer mensaje y llama a la API con esquema cer
   assert.equal(l.url, 'https://api.anthropic.com/v1/messages');
   assert.equal(l.init.headers['x-api-key'], 'sk-test');
   assert.equal(l.cuerpo.model, 'claude-haiku-5-5');
+  assert.equal('temperature' in l.cuerpo, false, 'la API rechaza temperature para claude-haiku-5-5 (HTTP 400)');
   assert.equal(l.cuerpo.tools.length, 1);
   assert.equal(l.cuerpo.tools[0].name, 'guardar_datos');
   assert.deepEqual(l.cuerpo.tool_choice, { type: 'tool', name: 'guardar_datos' });
@@ -2173,7 +2174,7 @@ function crearExtractor({ apiKey, fetchImpl = fetch, timeoutMs = 6000, modelo = 
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
-          model: modelo, max_tokens: 200, temperature: 0, system: SISTEMA,
+          model: modelo, max_tokens: 200, system: SISTEMA,
           tools: [HERRAMIENTA], tool_choice: { type: 'tool', name: 'guardar_datos' },
           messages: [{ role: 'user', content: t.slice(0, 1000) }],
         }),
