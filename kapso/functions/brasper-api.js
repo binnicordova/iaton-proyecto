@@ -23,6 +23,9 @@ const ESTADO_TEXTO = {
   enviada: 'enviada: tu dinero ya fue enviado',
   rechazada: 'con un problema de validación: una persona te contactará',
 };
+// Banco de BrasPer que se muestra al cliente: el de origen, salvo "Otro" o vacío (entonces uno por defecto de la moneda).
+const BANCO_DEFECTO = { BRL: 'Banco do Brasil', PEN: 'BCP', USD: 'BCP' };
+const bancoDeBrasper = (vars) => (vars.banco_origen && vars.banco_origen !== 'Otro' ? vars.banco_origen : BANCO_DEFECTO[normMoneda(vars.moneda_origen)] || 'Banco DEMO');
 const SNAP_KEYS = [
   'monto', 'moneda_origen', 'moneda_destino', 'tasa', 'tasa_txt', 'comision_txt', 'recibe_txt', 'total_enviar_txt',
   'monto_txt', 'tasa_hasta', 'tasa_hasta_iso', 'banco_origen', 'origen_fondos', 'dni_cpf', 'tipo_doc',
@@ -42,8 +45,11 @@ function normMoneda(s) {
 }
 
 function parseMonto(s) {
-  const m = String(s === undefined || s === null ? '' : s).match(/\d[\d.,]*/);
+  const txt = String(s === undefined || s === null ? '' : s);
+  const m = txt.match(/\d[\d.,]*/);
   if (!m) return null;
+  // "-500" y "2 mil"/"3k" no se interpretan: se rechazan en vez de inventar un monto.
+  if (txt[m.index - 1] === '-' || /^\s*(mil|k|mm|millon|millones)\b/i.test(sinAcentos(txt.slice(m.index + m[0].length)))) return null;
   let t = m[0].replace(/[.,]+$/, '');
   const sep = Math.max(t.lastIndexOf('.'), t.lastIndexOf(','));
   if (sep > -1 && t.length - sep - 1 <= 2) t = `${t.slice(0, sep).replace(/[.,]/g, '')}.${t.slice(sep + 1)}`;
@@ -280,7 +286,7 @@ const ACCIONES = {
     return {
       vars: {
         brasper_titular: 'BrasPer (DEMO)',
-        brasper_banco: vars.banco_origen || 'Banco DEMO',
+        brasper_banco: bancoDeBrasper(vars),
         brasper_cuenta: `DEMO-${normMoneda(vars.moneda_origen) || 'XXX'}-0001`,
       },
     };
@@ -299,6 +305,14 @@ const ACCIONES = {
     if (op) await saveOp(db, { ...op, estado: 'cancelada' });
     await db.del(`active:${phone}`);
     return { vars: { estado: 'cancelada' } };
+  },
+
+  complete_operation: async ({ env, vars, phone }) => {
+    const db = kv(env);
+    const op = await getOp(db, vars.operacion_id);
+    if (op) await saveOp(db, { ...op, estado: 'completada' });
+    await db.del(`active:${phone}`);
+    return { vars: { estado: 'completada' } };
   },
 
   handoff_to_human: async ({ env, vars, phone, arg, now }) => {

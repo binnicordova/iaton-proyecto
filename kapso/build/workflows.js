@@ -169,7 +169,9 @@ function e2() {
     error: 'Ese número no parece válido. Escríbelo solo con dígitos.', motivo: 'numero_cuenta_invalido',
     escalarOpts: { mensaje: 'No pude validar el número de cuenta. Puedes agregarla desde el formulario web y una persona del equipo te ayudará.', cta: { body: 'Agrega tu cuenta desde la web.', label: 'Abrir formulario web', url: FORMULARIO_WEB } },
   });
-  f.linkAll(bn.ruta, num.entrada, bn.ids);
+  f.linkAll(bn.ruta, num.entrada, bn.ids.filter((b) => b !== 'Otro'));
+  // Banco "Otro": la cuenta se agrega desde el formulario web con ayuda de una persona.
+  f.link(bn.ruta, escalar(f, 'bnotro', 'banco_otro', { mensaje: 'Para ese banco, agrega tu cuenta desde el formulario web y una persona del equipo te ayudará.', cta: { body: 'Agrega tu cuenta desde la web.', label: 'Abrir formulario web', url: FORMULARIO_WEB } }), 'Otro');
   const cf = elegir(f, 'cf', {
     tipo: 'buttons', body: 'Confirmo: {{vars.cuenta_banco_nuevo}} ••{{vars.cuenta_ultimos4}}. ¿Está a tu nombre?',
     opciones: [{ id: 'guardar', title: 'Sí, guardar' }, { id: 'corregir', title: 'Corregir' }], variable: 'confirma_cuenta', motivo: 'confirma_cuenta',
@@ -264,7 +266,8 @@ function e4() {
   f.link('ventana', 'plantilla', 'cerrada');
   f.text('verificado', '✅ Pago verificado. Enviamos tu dinero a la cuenta ••{{vars.cuenta_ultimos4}}.');
   f.text('listo', '¡Listo! Recibiste {{vars.recibe_txt}} {{vars.moneda_destino}}. Te enviamos tu comprobante por correo.');
-  f.link('ruta', 'verificado', 'verificada').link('verificado', 'listo');
+  f.api('cierra', 'complete_operation');
+  f.link('ruta', 'verificado', 'verificada').link('verificado', 'listo').link('listo', 'cierra');
   f.link('ruta', escalar(f, 'rech', 'pago_no_validado', { mensaje: 'No pudimos validar tu pago de la operación {{vars.operacion_id}}. Una persona del equipo te contactará.' }), 'rechazada');
   f.setvar('omitido', 'aviso_omitido', 'si');
   f.link('ruta', 'omitido', 'otro');

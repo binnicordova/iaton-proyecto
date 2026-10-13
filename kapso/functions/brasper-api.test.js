@@ -285,3 +285,41 @@ test('route_moneda enruta por la moneda de la variable indicada', async () => {
   assert.equal((await call('route_moneda:moneda_origen', { vars: { moneda_origen: 'euros' }, edges: E })).next_edge, 'BRL');
   assert.equal((await call('route_moneda:moneda_origen', { edges: E })).next_edge, 'BRL');
 });
+
+test('parseMonto rechaza montos con multiplicadores en palabras y negativos', () => {
+  assert.equal(parseMonto('2 mil'), null);
+  assert.equal(parseMonto('3k'), null);
+  assert.equal(parseMonto('-500'), null);
+  assert.equal(parseMonto('1.500,50 reales'), 1500.5);
+});
+
+test('get_company_account no muestra "Otro" como banco de BrasPer', async () => {
+  const { call } = mundo();
+  const cta = await call('get_company_account', { vars: { moneda_origen: 'BRL', banco_origen: 'Otro' } });
+  assert.equal(cta.vars.brasper_banco, 'Banco do Brasil');
+  const pen = await call('get_company_account', { vars: { moneda_origen: 'PEN', banco_origen: 'Otro' } });
+  assert.equal(pen.vars.brasper_banco, 'BCP');
+});
+
+test('complete_operation cierra la operación y libera al cliente para cotizar de nuevo', async () => {
+  const { call } = mundo();
+  const R = ['e1', 'e3', 'estado', 'escalada'];
+  await call('create_operation', { vars: COTIZACION });
+  await call('set_status', { vars: { operacion_id: 'BR-0001', estado: 'verificada' } });
+  assert.equal((await call('get_status', { edges: R })).next_edge, 'estado');
+  const r = await call('complete_operation', { vars: { operacion_id: 'BR-0001' } });
+  assert.equal(r.vars.estado, 'completada');
+  assert.equal((await call('get_status', { edges: R })).next_edge, 'e1');
+});
+
+test('horario de Lima: bordes de apertura y cierre', async () => {
+  const { call } = mundo();
+  const E = ['abierto', 'cerrado'];
+  // 2026-10-12 es lunes. Lima = UTC-5.
+  assert.equal((await call('check_hours', { edges: E, ahora: '2026-10-12T22:59:00Z' })).next_edge, 'abierto'); // 17:59
+  assert.equal((await call('check_hours', { edges: E, ahora: '2026-10-12T23:00:00Z' })).next_edge, 'cerrado'); // 18:00
+  assert.equal((await call('check_hours', { edges: E, ahora: '2026-10-12T12:00:00Z' })).next_edge, 'abierto'); // 07:00
+  assert.equal((await call('check_hours', { edges: E, ahora: '2026-10-17T18:59:00Z' })).next_edge, 'abierto'); // sáb 13:59
+  assert.equal((await call('check_hours', { edges: E, ahora: '2026-10-17T19:00:00Z' })).next_edge, 'cerrado'); // sáb 14:00
+  assert.equal((await call('check_hours', { edges: E, ahora: '2026-10-18T19:00:00Z' })).next_edge, 'cerrado'); // dom 14:00
+});

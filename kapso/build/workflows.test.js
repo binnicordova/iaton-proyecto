@@ -111,3 +111,24 @@ test('el aviso fuera de horario no termina en punto tras la variable (evita "a. 
   assert.ok(!fuera.endsWith('}}.'), fuera);
   assert.ok(fuera.includes('{{vars.proxima_verificacion}}'));
 });
+
+test('la lista de USD no incluye Caixa y la de BRL sí', () => {
+  assert.ok(!filas(flows.E2, 'bo_ask_USD').includes('Caixa'));
+  assert.ok(filas(flows.E2, 'bo_ask_BRL').includes('Caixa'));
+});
+
+test('banco "Otro" al agregar una cuenta nueva lleva al formulario web, no a pedir el número', () => {
+  const e2 = flows.E2;
+  const aristas = e2.edges.filter((e) => e.source === 'bn_route' && e.label === 'Otro');
+  assert.equal(aristas.length, 1);
+  assert.ok(aristas[0].target.startsWith('bnotro'), aristas[0].target);
+  const cta = e2.nodes.find((n) => n.id === 'bnotro_cta');
+  assert.equal(cta.config.cta_url, 'https://brasper.com/es');
+});
+
+test('E4 cierra la operación como completada tras avisar al cliente', () => {
+  const e = flows.E4.edges.find((x) => x.source === 'listo');
+  assert.equal(e.target, 'cierra_set');
+  const set = flows.E4.nodes.find((n) => n.id === 'cierra_set');
+  assert.equal(JSON.stringify(set.config).includes('complete_operation'), true);
+});
