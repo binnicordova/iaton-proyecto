@@ -88,3 +88,21 @@ test('registra metadatos del envío sin el texto', async () => {
   assert.equal(eventos[0].chat, '***9999');
   assert.ok(!JSON.stringify(eventos[0]).includes('secreto del cliente'));
 });
+
+test('resolverTelefono traduce un @lid al teléfono real con la API de LIDs de WAHA', async () => {
+  const { p, llamadas } = proveedor([]);
+  const fetchImpl = async (url, init) => { llamadas.push({ url, key: init.headers['X-Api-Key'] }); return { ok: true, status: 200, json: async () => ({ lid: '155@lid', pn: '51944686794@c.us' }) }; };
+  const q = new WahaProvider({ baseUrl: 'http://waha:3000', apiKey: 'K', session: 'demo', fetchImpl });
+  assert.equal(await q.resolverTelefono('155@lid'), '51944686794');
+  assert.equal(llamadas[0].url, 'http://waha:3000/api/demo/lids/155%40lid');
+  assert.equal(llamadas[0].key, 'K');
+  assert.equal(await q.resolverTelefono('51944686794@c.us'), '51944686794'); // un @c.us no consulta la API
+  assert.equal(llamadas.length, 1);
+});
+
+test('resolverTelefono devuelve null si WAHA no conoce el LID o falla', async () => {
+  for (const fetchImpl of [async () => ({ ok: false, status: 404, json: async () => ({}) }), async () => ({ ok: true, status: 200, json: async () => ({ lid: 'x', pn: null }) }), async () => { throw new Error('ECONNRESET'); }]) {
+    const q = new WahaProvider({ baseUrl: 'http://waha:3000', apiKey: 'K', session: 'demo', fetchImpl });
+    assert.equal(await q.resolverTelefono('155@lid'), null);
+  }
+});

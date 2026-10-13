@@ -142,3 +142,28 @@ test('el chat real (@lid) de un cliente se recuerda para los avisos posteriores'
   assert.equal(s.proveedor.enviados.at(-1).chatId, '184512345678901@lid');
   await s.cerrar();
 });
+
+test('un remitente @lid se identifica por su teléfono real, y se recuerda en el KV para no consultar de nuevo', async () => {
+  const s = await levantar();
+  try {
+    s.proveedor.lids['155387672191004@lid'] = '51944686794';
+    let llamadas = 0;
+    const original = s.proveedor.resolverTelefono.bind(s.proveedor);
+    s.proveedor.resolverTelefono = async (c) => { llamadas++; return original(c); };
+    const e = fx('message_text');
+    e.payload.from = '155387672191004@lid';
+    await s.enviar(e);
+    await s.inactivo();
+    assert.deepEqual(s.proveedor.textos(), ['eco']);
+    assert.equal(s.proveedor.enviados[0].chatId, '155387672191004@lid'); // se responde al chat original
+    assert.equal(await s.almacen.kvEnv().get('chat:51944686794', 'json'), '155387672191004@lid');
+    assert.equal(await s.almacen.kvEnv().get('lid:155387672191004', 'json'), '51944686794');
+    const otro = fx('message_text');
+    otro.id = 'evt_lid_2'; otro.payload.id = 'false_x_AAA9'; otro.payload.from = '155387672191004@lid';
+    await s.enviar(otro);
+    await s.inactivo();
+    assert.equal(llamadas, 1);
+  } finally {
+    await s.cerrar();
+  }
+});

@@ -28,9 +28,24 @@ function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch })
   const enSegundoPlano = (promesa) => { pendientes.add(promesa); promesa.finally(() => pendientes.delete(promesa)); };
   const kv = almacen.kvEnv();
 
-  async function procesar(n) {
+  // Un @lid se traduce al teléfono real (con caché en el KV) para que el estado, las demos y los avisos usen el mismo número.
+  // Si WAHA no lo resuelve, se usa el LID como identidad.
+  async function identificar(n) {
+    if (!n.chatId.endsWith('@lid')) return n;
+    const clave = `lid:${n.telefono}`;
+    let tel = await kv.get(clave, 'json');
+    if (!tel) {
+      tel = await proveedor.resolverTelefono(n.chatId);
+      if (tel) await kv.put(clave, JSON.stringify(tel));
+    }
+    return tel ? { ...n, telefono: tel } : n;
+  }
+
+  async function procesar(entrante) {
     const t0 = Date.now();
+    let n = entrante;
     try {
+      n = await identificar(entrante);
       await kv.put(`chat:${n.telefono}`, JSON.stringify(n.chatId));
       proveedor.marcarLeido(n.chatId);
       await motor.procesarMensaje(n);

@@ -1,5 +1,5 @@
 const { renderMenu } = require('./menu-texto');
-const { enmascarar } = require('../util');
+const { enmascarar, soloDigitos } = require('../util');
 
 class ErrorEnvio extends Error {
   constructor(mensaje, { estado = null, reintentable = false, restriccion = false } = {}) {
@@ -81,6 +81,20 @@ class WahaProvider {
   enviarEnlace(chatId, cuerpo, etiqueta, url) {
     if (this.interactivos === 'texto') return this.enviarTexto(chatId, `${cuerpo}\n${etiqueta}: ${url}`);
     return this._enviar('/api/sendButtons', { chatId, body: cuerpo, buttons: [{ type: 'url', text: etiqueta, url }] });
+  }
+
+  // WAHA puede entregar al cliente como @lid (identificador interno de WhatsApp) en vez de su teléfono.
+  // Devuelve el teléfono real (solo dígitos) o null si WAHA no lo conoce.
+  async resolverTelefono(chatId) {
+    if (!/@lid$/.test(String(chatId))) return soloDigitos(chatId);
+    try {
+      const res = await this.fetchImpl(`${this.baseUrl}/api/${this.session}/lids/${encodeURIComponent(chatId)}`, { headers: { 'X-Api-Key': this.apiKey } });
+      if (!res.ok) return null;
+      const d = await res.json();
+      return d && d.pn ? soloDigitos(d.pn) : null;
+    } catch {
+      return null;
+    }
   }
 
   // Marcar como leído nunca bloquea ni rompe la respuesta.
