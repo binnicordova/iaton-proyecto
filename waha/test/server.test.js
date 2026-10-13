@@ -167,3 +167,17 @@ test('un remitente @lid se identifica por su teléfono real, y se recuerda en el
     await s.cerrar();
   }
 });
+
+test('si el evento ya trae el teléfono real (remoteJidAlt), no se consulta la API de LIDs', async () => {
+  const s = await levantar();
+  try {
+    let llamadas = 0;
+    s.proveedor.resolverTelefono = async () => { llamadas++; return null; };
+    await s.enviar(fx('respuesta_lista'));
+    await s.inactivo();
+    assert.equal(llamadas, 0);
+    assert.equal(await s.almacen.kvEnv().get('chat:51999999999', 'json'), '184512345678901@lid');
+  } finally {
+    await s.cerrar();
+  }
+});

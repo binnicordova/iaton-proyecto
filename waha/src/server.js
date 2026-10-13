@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const http = require('node:http');
 const { verificarHmac } = require('./webhook/hmac');
 const { normalizarEvento } = require('./webhook/normalizar');
-const { enmascarar } = require('./util');
+const { enmascarar, soloDigitos } = require('./util');
 
 const LIMITE_CUERPO = 256 * 1024;
 
@@ -31,7 +31,7 @@ function crearServidor({ config, motor, almacen, proveedor, fetchImpl = fetch })
   // Un @lid se traduce al teléfono real (con caché en el KV) para que el estado, las demos y los avisos usen el mismo número.
   // Si WAHA no lo resuelve, se usa el LID como identidad.
   async function identificar(n) {
-    if (!n.chatId.endsWith('@lid')) return n;
+    if (!n.chatId.endsWith('@lid') || n.telefono !== soloDigitos(n.chatId)) return n; // @c.us, o el teléfono real ya vino en el evento
     const clave = `lid:${n.telefono}`;
     let tel = await kv.get(clave, 'json');
     if (!tel) {

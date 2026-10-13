@@ -18,6 +18,13 @@ function tipoDeMedia(payload) {
   return 'other';
 }
 
+// Con NOWEB el remitente llega como @lid, pero el evento trae el teléfono real en _data.key.remoteJidAlt.
+// Si no viene, queda el LID y el servidor intenta resolverlo con la API de WAHA.
+function telefonoReal(payload, from) {
+  const alt = payload._data && payload._data.key && payload._data.key.remoteJidAlt;
+  return /@lid$/.test(from) && /@s\.whatsapp\.net$/.test(String(alt || '')) ? soloDigitos(alt) : soloDigitos(from);
+}
+
 // Devuelve un evento de dominio o null si debe ignorarse. Nada fuera de este archivo conoce los campos de WAHA.
 function normalizarEvento(evento) {
   if (!evento || !EVENTOS.has(evento.event) || !evento.payload) return null;
@@ -32,7 +39,7 @@ function normalizarEvento(evento) {
     eventoId: evento.id || `${evento.session}:${p.id}`,
     mensajeId: p.id,
     chatId: from,
-    telefono: soloDigitos(from),
+    telefono: telefonoReal(p, from),
     texto: String(p.body || ''),
     opcionId,
     tieneMedia: Boolean(p.hasMedia),

@@ -76,3 +76,15 @@ test('la respuesta a una lista se normaliza con el id de la fila y el título co
   assert.equal(m.texto, 'BCP');
   assert.equal(m.chatId, '184512345678901@lid');
 });
+
+test('con NOWEB el teléfono real viene en _data.key.remoteJidAlt aunque el remitente sea @lid', () => {
+  const m = normalizarEvento(fx('respuesta_lista'));
+  assert.equal(m.chatId, '184512345678901@lid'); // se responde al chat original
+  assert.equal(m.telefono, '51999999999');
+});
+
+test('un @lid sin remoteJidAlt conserva el LID como teléfono (se resuelve después con la API de WAHA)', () => {
+  const e = fx('respuesta_lista');
+  delete e.payload._data.key.remoteJidAlt;
+  assert.equal(normalizarEvento(e).telefono, '184512345678901');
+});
