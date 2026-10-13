@@ -33,7 +33,7 @@ const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } });
 const round2 = (n) => Math.round(n * 100) / 100;
 const normPhone = (p) => String(p || '').replace(/\D/g, '');
-const sinAcentos = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
+const sinAcentos = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const digitos = (s) => String(s || '').replace(/[\s.\-]/g, '');
 
 function normMoneda(s) {
