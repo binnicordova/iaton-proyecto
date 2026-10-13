@@ -85,6 +85,11 @@ class WahaProvider {
     return this.enviarTexto(chatId, `${cuerpo}\n${etiqueta}: ${url}`);
   }
 
+  // Envía un archivo (por ahora el PDF del comprobante) en base64. No depende del modo de interactivos.
+  enviarDocumento(chatId, { nombre, mimetype, base64, caption }) {
+    return this._enviar('/api/sendFile', { chatId, file: { mimetype, filename: nombre, data: base64 }, caption });
+  }
+
   // WAHA puede entregar al cliente como @lid (identificador interno de WhatsApp) en vez de su teléfono.
   // Devuelve el teléfono real (solo dígitos) o null si WAHA no lo conoce.
   async resolverTelefono(chatId) {
