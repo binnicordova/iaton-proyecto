@@ -13,7 +13,7 @@ const CHAT = `${T}@c.us`;
 const COTIZA = async () => ({ monto: 500, moneda_origen: 'BRL', moneda_destino: 'PEN' });
 const AHORA_SIMULADO = '2026-10-14T15:00:00Z'; // miércoles 10:00 en Lima: horario abierto
 
-async function crearMundoV2({ extraer = COTIZA, db } = {}) {
+async function crearMundoV2({ extraer = COTIZA, db, simular = AHORA_SIMULADO } = {}) {
   const falso = await crearFirebaseFalso();
   const bd = db || abrirDb(':memory:');
   const almacen = crearAlmacen(bd);
@@ -24,7 +24,7 @@ async function crearMundoV2({ extraer = COTIZA, db } = {}) {
   const ahora = () => new Date(Date.now() + desfase * 60_000);
   const backend = crearBackend({
     modo: 'real', almacen, configReal: falso.config, descargarMedia: (p) => descargar(p), registrar: (e) => registrados.push(e),
-    dormir: async () => {}, varsFijas: { simular_ahora: AHORA_SIMULADO }, ahora,
+    dormir: async () => {}, varsFijas: { simular_ahora: simular }, ahora,
   });
   const motor = crearMotor({ flujos: cargarFlujosV2(), almacen, proveedor, llamarFuncion: backend.llamarFuncion, extraer });
   const decir = (texto, extra = {}) => motor.procesarMensaje(msg(T, texto, extra));

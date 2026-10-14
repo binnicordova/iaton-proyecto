@@ -16,7 +16,9 @@ function e1() {
   f.link('verifica', 'cotiza', 'completa');
 
   // Respaldo: el mensaje no trae los tres datos.
-  const mo = elegir(f, 'mo', { tipo: 'buttons', body: '¡Hola! Soy el asistente de BrasPer. ¿Qué moneda quieres enviar?', opciones: MONEDAS_BTN, variable: 'moneda_origen', motivo: 'moneda_origen' });
+  const mo = elegir(f, 'mo', { tipo: 'buttons', body: '¡Hola! Soy el asistente de BrasPer. ¿Qué moneda quieres enviar?', opciones: MONEDAS_BTN, variable: 'moneda_origen', motivo: 'moneda_origen',
+    // Si en vez de tocar un botón el cliente escribe la remesa (p. ej. tras mandar una imagen), se interpreta ese texto; el segundo fallo escala.
+    siInvalido: 'extraer' });
   const md = elegir(f, 'md', { tipo: 'buttons', body: '¿En qué moneda recibe tu destinatario?', opciones: MONEDAS_BTN, variable: 'moneda_destino', motivo: 'moneda_destino' });
   const monto = pregunta(f, 'monto', { prompt: '¿Cuánto quieres enviar? Escribe solo el monto.', guardar: 'monto_raw', validar: 'monto', error: 'No entendí el monto. Escribe solo el número, por ejemplo 500.', motivo: 'monto_invalido' });
   f.link('verifica', mo.entrada, 'incompleta');
@@ -27,11 +29,11 @@ function e1() {
   // Resultados de la cotización.
   f.text('par_err', 'Esa combinación de monedas no está disponible. Elige otras.');
   f.link('cotiza', 'par_err', 'par_invalido').link('par_err', mo.entrada);
-  f.text('bajo', 'Ese monto es menor al mínimo (unos 10 USD equivalentes). Escribe un monto mayor.');
+  f.text('bajo', 'Ese monto es menor al mínimo para operar. Escribe un monto mayor.');
   f.link('cotiza', 'bajo', 'monto_bajo').link('bajo', monto.entrada);
   f.link('cotiza', escalar(f, 'tasas', 'tasas_no_disponibles', { mensaje: MSG_SIN_TASAS }), 'sin_servicio');
   f.link('cotiza', escalar(f, 'grande', 'monto_grande', { mensaje: 'Por el monto, te paso con una persona del equipo para ayudarte.' }), 'requiere_persona');
-  f.buttons('oferta', '¡Hola! Hoy 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}. Comisión {{vars.comision_txt}} + impuesto {{vars.impuesto_txt}} {{vars.moneda_origen}}. Total a transferir {{vars.total_enviar_txt}} {{vars.moneda_origen}}. Recibirás {{vars.recibe_txt}} {{vars.moneda_destino}}. Tasa asegurada hasta las {{vars.tasa_hasta}}', [
+  f.buttons('oferta', '💱 *Tu cotización*\n📤 Envías: {{vars.monto_txt}} {{vars.moneda_origen}}\n➕ Comisión + impuesto: {{vars.cargos_txt}} {{vars.moneda_origen}}\n💳 *Total a transferir: {{vars.total_enviar_txt}} {{vars.moneda_origen}}*\n📥 *Recibes: {{vars.recibe_txt}} {{vars.moneda_destino}}*\n📈 Tasa: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}\n⏱ Cotización vigente hasta las {{vars.tasa_hasta}}', [
     { id: 'continuar', title: 'Continuar' }, { id: 'cambiar_monto', title: 'Cambiar monto' }, { id: 'persona', title: 'Hablar con persona' },
   ]);
   f.cta('web', '¿Prefieres hacerlo desde la web?', 'Abrir formulario web', FORMULARIO_WEB);

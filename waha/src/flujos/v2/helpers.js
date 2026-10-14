@@ -51,14 +51,15 @@ function pregunta(f, n, { prompt, guardar, validar, error, motivo, escalarOpts }
 
 // Elección por botones o lista; una respuesta fuera de las opciones repite el mensaje y el segundo fallo escala.
 // El llamador conecta `ruta` con cada id de `opciones`.
-function elegir(f, n, { tipo, body, opciones, boton = 'Elegir', variable, motivo }) {
+// `siInvalido`: nodo al que va una respuesta que no es una opción (por defecto, repite la pregunta).
+function elegir(f, n, { tipo, body, opciones, boton = 'Elegir', variable, motivo, siInvalido }) {
   if (tipo === 'list') f.list(`${n}_ask`, body, boton, opciones);
   else f.buttons(`${n}_ask`, body, opciones);
   f.wait(`${n}_wait`);
   f.api(`${n}_route`, `route_reply:${variable}`, { edges: [...ids(opciones), 'invalido', 'escalar'] });
   const esc = escalar(f, `${n}_esc`, motivo);
   f.link(`${n}_ask`, `${n}_wait`).link(`${n}_wait`, `${n}_route`);
-  f.link(`${n}_route`, `${n}_ask`, 'invalido');
+  f.link(`${n}_route`, siInvalido || `${n}_ask`, 'invalido');
   f.link(`${n}_route`, esc, 'escalar');
   return { entrada: `${n}_ask`, ruta: `${n}_route` };
 }

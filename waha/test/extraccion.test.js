@@ -57,3 +57,27 @@ test('el texto del cliente se recorta antes de enviarse', async () => {
   await crearExtractor({ apiKey: 'k', fetchImpl })('a'.repeat(5000));
   assert.equal(llamadas[0].cuerpo.messages[0].content.length, 1000);
 });
+
+test('un fallo pasajero de la API (529, 429, 5xx o timeout) se reintenta una vez y se registra el código, nunca el texto', async () => {
+  for (const status of [529, 429, 500]) {
+    const respuestas = [{ ok: false, status, json: async () => ({}) }, { ok: true, status: 200, json: async () => toolUse({ monto: 500, moneda_origen: 'PEN', moneda_destino: 'BRL' }) }];
+    const eventos = [];
+    const extraer = crearExtractor({ apiKey: 'k', fetchImpl: async () => respuestas.shift(), registrar: (e) => eventos.push(e), dormir: async () => {} });
+    assert.deepEqual(await extraer('Quiero enviar 500 soles a Brasil'), { monto: 500, moneda_origen: 'PEN', moneda_destino: 'BRL' }, `HTTP ${status}`);
+    assert.deepEqual(eventos.map((e) => [e.tipo, e.estado]), [['ia_reintento', String(status)]]);
+  }
+  const eventos = [];
+  const extraer = crearExtractor({ apiKey: 'k', fetchImpl: async () => { throw Object.assign(new Error('x'), { name: 'TimeoutError' }); }, registrar: (e) => eventos.push(e), dormir: async () => {} });
+  assert.deepEqual(await extraer('Quiero enviar 500 soles a Brasil'), {});
+  assert.deepEqual(eventos.map((e) => [e.tipo, e.estado]), [['ia_reintento', 'TimeoutError'], ['ia_error', 'TimeoutError']]);
+  assert.ok(!JSON.stringify(eventos).includes('soles'), 'el texto del cliente no va al registro');
+});
+
+test('un error definitivo de la API (400, 401) no se reintenta, pero queda registrado', async () => {
+  let llamadas = 0;
+  const eventos = [];
+  const extraer = crearExtractor({ apiKey: 'k', fetchImpl: async () => { llamadas += 1; return { ok: false, status: 401, json: async () => ({}) }; }, registrar: (e) => eventos.push(e), dormir: async () => {} });
+  assert.deepEqual(await extraer('hola 500 soles'), {});
+  assert.equal(llamadas, 1);
+  assert.deepEqual(eventos.map((e) => [e.tipo, e.estado]), [['ia_error', '401']]);
+});

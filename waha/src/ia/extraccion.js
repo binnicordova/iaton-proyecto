@@ -42,28 +42,44 @@ function limpiar(input) {
   return out;
 }
 
-function crearExtractor({ apiKey, fetchImpl = fetch, timeoutMs = 6000, modelo = MODELO }) {
+const dormirReal = (ms) => new Promise((r) => setTimeout(r, ms));
+const REINTENTABLE = (estado) => estado === 429 || estado >= 500; // 529 (sobrecarga) también
+
+// Un fallo pasajero de la API se reintenta una vez; si sigue fallando, el flujo pregunta paso a paso (extracción vacía).
+// Se registra solo el código o el tipo de error, nunca el texto del cliente.
+function crearExtractor({ apiKey, fetchImpl = fetch, timeoutMs = 6000, modelo = MODELO, registrar = () => {}, dormir = dormirReal }) {
+  async function unIntento(t) {
+    const res = await fetchImpl('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: modelo, max_tokens: 200, system: SISTEMA,
+        tools: [HERRAMIENTA], tool_choice: { type: 'tool', name: 'guardar_datos' },
+        messages: [{ role: 'user', content: t.slice(0, 1000) }],
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) throw Object.assign(new Error('http'), { estado: res.status });
+    const data = await res.json();
+    const bloque = (data.content || []).find((b) => b.type === 'tool_use' && b.name === 'guardar_datos');
+    return limpiar(bloque && bloque.input);
+  }
+
   return async function extraer(texto) {
     const t = String(texto || '').trim();
     if (!apiKey || !t) return {};
-    try {
-      const res = await fetchImpl('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({
-          model: modelo, max_tokens: 200, system: SISTEMA,
-          tools: [HERRAMIENTA], tool_choice: { type: 'tool', name: 'guardar_datos' },
-          messages: [{ role: 'user', content: t.slice(0, 1000) }],
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (!res.ok) return {};
-      const data = await res.json();
-      const bloque = (data.content || []).find((b) => b.type === 'tool_use' && b.name === 'guardar_datos');
-      return limpiar(bloque && bloque.input);
-    } catch {
-      return {};
+    for (let intento = 0; intento < 2; intento += 1) {
+      try {
+        return await unIntento(t);
+      } catch (e) {
+        const estado = e && e.estado ? String(e.estado) : String((e && e.name) || 'error');
+        const pasajero = e && e.estado ? REINTENTABLE(e.estado) : true;
+        if (pasajero && intento === 0) { registrar({ tipo: 'ia_reintento', estado }); await dormir(300); continue; }
+        registrar({ tipo: 'ia_error', estado });
+        return {};
+      }
     }
+    return {};
   };
 }
 
