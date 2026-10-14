@@ -297,7 +297,21 @@ test('W0: quien vuelve con una orden pendiente ve de nuevo las instrucciones; en
   m.falso.aprobar('BR-0001');
   await m.decir('¿y ahora?');
   assert.equal(m.ultimo().texto, 'Tu operación BR-0001 está verificada: estamos enviando tu dinero. Te escribo apenas haya novedades.');
-}));
+}, { extraer: async (t) => (/enviar/.test(t) ? { monto: 500, moneda_origen: 'BRL', moneda_destino: 'PEN' } : {}) }));
+
+test('W0: con una orden en validación, un mensaje que pide una remesa nueva abre otra cotización; un mensaje cualquiera da el estado', () => conMundo(async (m) => {
+  await hastaInstrucciones(m);
+  await m.tocar('ya_transferi', 'Ya transferí');
+  await m.foto();
+  await m.decir('ab-1234');
+  assert.equal(m.falso.ordenes.get('BR-0001').status, 'validating');
+  await m.decir('hola');
+  assert.match(m.ultimo().texto, /^Tu operación BR-0001 está en validación/);
+  await m.decir('Quiero enviar 500 reales a Perú');
+  assert.match(m.proveedor.enviados.find((e) => /Esta es tu cotización/.test(e.texto || '') && e !== m.proveedor.enviados[0]).texto, /Total a transferir: 514\.16 BRL/);
+  assert.equal(m.falso.ordenes.get('BR-0001').status, 'validating'); // la primera sigue su curso y el seguimiento sigue abierto
+  assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0);
+}, { extraer: async (t) => (/enviar/.test(t) ? { monto: 500, moneda_origen: 'BRL', moneda_destino: 'PEN' } : {}) }));
 
 test('"Hablar con persona" abre un ticket y los mensajes siguientes reciben el aviso de que ya los atienden', () => conMundo(async (m) => {
   await m.decir('Hola, quiero enviar 500 reales a Perú');

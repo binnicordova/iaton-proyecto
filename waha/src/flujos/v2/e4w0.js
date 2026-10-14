@@ -1,5 +1,6 @@
 // E4 v2 (lo lanza el vigilante con vars.evento) y el enrutador W0 v2.
 const { Flow } = require('../../../../kapso/build/flow');
+const { AGENTE_EXTRACCION } = require('../../../../kapso/build/workflows');
 const { escalar } = require('./helpers');
 
 function e4() {
@@ -32,7 +33,11 @@ function w0() {
   f.link('sigue1', 'fin', 'fin').link('sigue2', 'fin', 'fin');
   f.link('estado', 'c3', 'e3');
   f.text('status', 'Tu operación {{vars.operacion_id}} está {{vars.estado_texto}}. Te escribo apenas haya novedades.');
-  f.link('estado', 'status', 'estado');
+  // Con una orden en validación o aprobada, un mensaje que pide una remesa nueva abre otra cotización (la primera sigue su curso);
+  // cualquier otro mensaje recibe el estado.
+  f.agent('w_ext', AGENTE_EXTRACCION);
+  f.api('w_chk', 'check_extraction', { edges: ['completa', 'incompleta'] });
+  f.link('estado', 'w_ext', 'estado').link('w_ext', 'w_chk').link('w_chk', 'c1', 'completa').link('w_chk', 'status', 'incompleta');
   f.text('esc', 'Una persona del equipo ya está atendiendo tu caso.');
   f.link('estado', 'esc', 'escalada');
   return f;
