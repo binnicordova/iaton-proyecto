@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Flow } = require('../../kapso/build/flow');
 const { ErrorEnvio } = require('../src/provider/waha');
+const { ErrorBackend } = require('../src/backend/real/errores');
 const { abrirDb } = require('../src/estado/db');
 const { crearMundo, msg } = require('./helpers/mundo');
 
@@ -212,4 +213,96 @@ test('un fallo de envío en un workflow lanzado por API (E4) no escala al client
   assert.deepEqual(acciones, []);
   assert.deepEqual(proveedor.textos(), []);
   assert.equal(almacen.cargarEjecucion(T), null);
+});
+
+test('la función recibe el chat y los datos del archivo del mensaje entrante', async () => {
+  const flujos = w0((f) => { f.wait('w').api('r', 'x', { edges: ['a'] }); f.link('start', 'w').link('w', 'r'); });
+  let visto;
+  const llamarFuncion = async (a) => { visto = a; return { vars: {}, next_edge: 'a' }; };
+  const { motor } = crearMundo({ flujos, llamarFuncion });
+  await motor.procesarMensaje(msg(T, 'inicio'));
+  await motor.procesarMensaje(msg(T, '', { tieneMedia: true, tipoMensaje: 'image', mensajeId: 'wamid-foto', mediaUrl: 'http://waha/api/files/f.jpeg', mimetype: 'image/jpeg' }));
+  assert.equal(visto.chatId, `${T}@c.us`);
+  const m = visto.wa.messages.at(-1);
+  assert.equal(m.media_url, 'http://waha/api/files/f.jpeg');
+  assert.equal(m.mimetype, 'image/jpeg');
+  assert.equal(m.whatsapp_message_id, 'wamid-foto');
+});
+
+test('lista dinámica: las filas salen de una variable (máximo 10) y el texto también se interpreta', async () => {
+  const flujos = w0((f) => {
+    f.setvar('s', 'dummy', 'x');
+    f._add('l', 'send_interactive', { interactive_type: 'list', body_text: 'Elige cuenta', list_button_text: 'Elegir', rows_var: 'cuentas_opts' });
+    f.wait('w').api('r', 'route', { edges: ['a', 'b', 'invalido'] }).text('t', 'ok');
+    f.link('start', 's').link('s', 'l').link('l', 'w').link('w', 'r').link('r', 't', 'a').link('r', 't', 'b').link('r', 't', 'invalido');
+  });
+  const filas = Array.from({ length: 12 }, (_, i) => ({ id: `acc:${i}`, title: `Banco ${i} ••${1000 + i}` }));
+  let id;
+  const { motor, proveedor } = crearMundo({ flujos, llamarFuncion: async ({ wa }) => { id = wa.messages.at(-1).reply_option_id; return { vars: {}, next_edge: 'a' }; } });
+  await motor.iniciar('W0', T, `${T}@c.us`, { cuentas_opts: filas });
+  const lista = proveedor.enviados[0];
+  assert.equal(lista.tipo, 'lista');
+  assert.equal(lista.opciones.length, 10);
+  assert.equal(lista.opciones[0].id, 'acc:0');
+  await motor.procesarMensaje(msg(T, '3'));
+  assert.equal(id, 'acc:2');
+});
+
+test('lista dinámica sin filas es un error del flujo, no un mensaje vacío', async () => {
+  const flujos = w0((f) => {
+    f._add('l', 'send_interactive', { interactive_type: 'list', body_text: 'x', list_button_text: 'y', rows_var: 'cuentas_opts' });
+    f.link('start', 'l');
+  });
+  const { motor, proveedor } = crearMundo({ flujos });
+  await motor.procesarMensaje(msg(T, 'x'));
+  assert.deepEqual(proveedor.textos(), ['Te paso con una persona del equipo para ayudarte.']);
+});
+
+test('un fallo de transporte del backend avisa del problema temporal, conserva el paso y el siguiente mensaje reintenta', async () => {
+  const flujos = w0((f) => { f.api('d', 'cotizar', { edges: ['ok'] }).text('t', 'cotizado'); f.link('start', 'd').link('d', 't', 'ok'); });
+  let intentos = 0;
+  const acciones = [];
+  const llamarFuncion = async ({ vars }) => {
+    acciones.push(vars.api_action);
+    if (vars.api_action === 'cotizar' && ++intentos === 1) throw new ErrorBackend('Firebase no respondió', { codigo: 'timeout', transporte: true });
+    return { vars: {}, next_edge: 'ok' };
+  };
+  const { motor, proveedor, almacen } = crearMundo({ flujos, llamarFuncion });
+  await motor.procesarMensaje(msg(T, 'hola'));
+  assert.deepEqual(proveedor.textos(), ['Tuvimos un problema temporal. Intenta de nuevo en un momento.']);
+  assert.ok(almacen.cargarEjecucion(T), 'la conversación se conserva');
+  assert.ok(!acciones.includes('handoff_to_human:error_motor'));
+  await motor.procesarMensaje(msg(T, 'ya'));
+  assert.deepEqual(proveedor.textos().at(-1), 'cotizado');
+  assert.equal(almacen.cargarEjecucion(T), null);
+});
+
+test('un error de negocio inesperado del backend sí escala a persona', async () => {
+  const flujos = w0((f) => { f.api('d', 'cotizar', { edges: ['ok'] }); f.link('start', 'd'); });
+  const llamarFuncion = async ({ vars }) => { if (vars.api_action === 'cotizar') throw new ErrorBackend('raro', { codigo: 'codigo-desconocido', estado: 400 }); return { vars: {} }; };
+  const { motor, proveedor } = crearMundo({ flujos, llamarFuncion });
+  await motor.procesarMensaje(msg(T, 'hola'));
+  assert.deepEqual(proveedor.textos(), ['Te paso con una persona del equipo para ayudarte.']);
+});
+
+test('un fallo de transporte en un workflow lanzado por API no avisa al cliente y se informa a quien lo lanzó', async () => {
+  const e4 = new Flow('E4', 'E4', 'e4'); e4.start().text('t', 'aviso'); e4.link('start', 't');
+  const w = new Flow('E4b', 'E4b', 'e4b'); w.start().api('d', 'x', { edges: ['ok'] }).text('t', 'aviso'); w.link('start', 'd').link('d', 't', 'ok');
+  const { motor, proveedor, almacen } = crearMundo({ flujos: { E4: w }, llamarFuncion: async () => { throw new ErrorBackend('red', { codigo: 'red', transporte: true }); } });
+  const r = await motor.iniciar('E4', T, `${T}@c.us`, {});
+  assert.deepEqual(r, { iniciado: true, fallo: 'transporte' });
+  assert.deepEqual(proveedor.textos(), []);
+  assert.equal(almacen.cargarEjecucion(T), null);
+});
+
+test('el estado guardado no incluye el texto de los mensajes del cliente, pero el agente lo ve en el mismo turno', async () => {
+  const flujos = w0((f) => { f.agent('ag', { system_prompt: 'x' }).wait('w'); f.link('start', 'ag').link('ag', 'w'); });
+  const vistos = [];
+  const { motor, almacen } = crearMundo({ flujos, extraer: async (texto) => { vistos.push(texto); return {}; } });
+  await motor.procesarMensaje(msg(T, 'mi DNI es 12345678 y mi correo ana@example.com'));
+  assert.deepEqual(vistos, ['mi DNI es 12345678 y mi correo ana@example.com']);
+  const guardado = almacen.cargarEjecucion(T);
+  assert.ok(guardado.entrantes.length >= 1);
+  assert.ok(guardado.entrantes.every((e) => e.text === ''));
+  assert.ok(!JSON.stringify(guardado).includes('12345678'));
 });

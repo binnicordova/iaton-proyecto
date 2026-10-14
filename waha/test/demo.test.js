@@ -28,3 +28,12 @@ test('resetDemo limpia la conversación, la operación activa, el visto y el han
   assert.equal(m.almacen.cargarEjecucion(T), null);
   for (const k of ['active', 'seen', 'handoff']) assert.equal(await m.kv.get(`${k}:${T}`, 'json'), null);
 });
+
+test('resetDemo con clienteNuevo también olvida la sesión de Firebase del teléfono', async () => {
+  const m = mundo();
+  m.almacen.guardarSesionFirebase({ telefono: T, uid: 'u1', refresh: 'r', idToken: 't', vence: 1 });
+  await resetDemo({ almacen: m.almacen, llamarFuncion: m.llamarFuncion, telefono: T });
+  assert.ok(m.almacen.sesionFirebase(T)); // el reset normal conserva la sesión: el cliente sigue siendo el mismo
+  await resetDemo({ almacen: m.almacen, llamarFuncion: m.llamarFuncion, telefono: T, clienteNuevo: true });
+  assert.equal(m.almacen.sesionFirebase(T), null);
+});

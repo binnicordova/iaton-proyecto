@@ -44,6 +44,8 @@ function normalizarEvento(evento) {
     opcionId,
     tieneMedia: Boolean(p.hasMedia),
     tipoMensaje: tipoDeMedia(p),
+    mediaUrl: (p.media && p.media.url) || null,
+    mimetype: (p.media && p.media.mimetype) || (p._data && p._data.mimetype) || null,
     creado: new Date((Number(p.timestamp) || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
   };
 }

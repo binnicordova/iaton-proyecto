@@ -88,3 +88,16 @@ test('un @lid sin remoteJidAlt conserva el LID como teléfono (se resuelve despu
   delete e.payload._data.key.remoteJidAlt;
   assert.equal(normalizarEvento(e).telefono, '184512345678901');
 });
+
+test('el mensaje con archivo trae la URL de descarga y el tipo cuando WAHA los entrega', () => {
+  const e = fx('message_image');
+  e.payload.media = { url: 'http://localhost:3000/api/files/f.jpeg', mimetype: 'image/jpeg' };
+  const m = normalizarEvento(e);
+  assert.equal(m.mediaUrl, 'http://localhost:3000/api/files/f.jpeg');
+  assert.equal(m.mimetype, 'image/jpeg');
+  const sinUrl = normalizarEvento(fx('message_image'));
+  assert.equal(sinUrl.mediaUrl, null);
+  assert.equal(sinUrl.mimetype, 'image/jpeg');
+  assert.equal(normalizarEvento(fx('message_text')).mediaUrl, null);
+  assert.equal(normalizarEvento(fx('message_text')).mimetype, null);
+});

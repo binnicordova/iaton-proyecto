@@ -13,6 +13,8 @@ services:
       WHATSAPP_SWAGGER_ENABLED: "true"
       WHATSAPP_SWAGGER_USERNAME: ${WHATSAPP_SWAGGER_USERNAME}
       WHATSAPP_SWAGGER_PASSWORD: ${WHATSAPP_SWAGGER_PASSWORD}
+      # Las fotos de los comprobantes llegan con su enlace de descarga en el webhook (BACKEND=real).
+      WAHA_EVENTS_DOWNLOAD_MEDIA: "true"
     volumes:
       - ./.sessions:/app/.sessions
 

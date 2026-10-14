@@ -4,29 +4,33 @@ const { cargarConfig, cargarEnvDeArchivos } = require('./config');
 const { abrirDb } = require('./estado/db');
 const { crearAlmacen } = require('./estado/almacen');
 const { WahaProvider } = require('./provider/waha');
-const { crearLlamadorFuncion } = require('./puente-api');
 const { crearExtractor } = require('./ia/extraccion');
-const { crearMotor } = require('./motor/motor');
-const { cargarFlujos } = require('./flujos');
-const { crearServidor } = require('./server');
+const { crearDescargaMedia } = require('./media');
+const { ensamblar } = require('./ensamblar');
 
 async function main() {
   const config = cargarConfig({ ...cargarEnvDeArchivos(path.join(__dirname, '..')), ...process.env });
   const almacen = crearAlmacen(abrirDb(config.dbPath));
-  almacen.limpiarVistos(new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString());
+  const limpiar = () => {
+    almacen.limpiarVistos(new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString());
+    almacen.limpiarEjecuciones(new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+  };
+  limpiar();
+  setInterval(limpiar, 3600 * 1000).unref();
   const proveedor = new WahaProvider({
     baseUrl: config.wahaBaseUrl, apiKey: config.wahaApiKey, session: config.wahaSession,
     interactivos: config.interactivos, pausaMs: config.pausaEnvioMs, registrar: (e) => almacen.registrar(e),
   });
-  const motor = crearMotor({
-    flujos: cargarFlujos(), almacen, proveedor,
-    llamarFuncion: crearLlamadorFuncion({ kvEnv: almacen.kvEnv(), envExtra: { TASAS_CAIDAS: process.env.TASAS_CAIDAS } }),
+  const entorno = { ...cargarEnvDeArchivos(path.join(__dirname, '..')), ...process.env };
+  const { servidor, vigilante } = ensamblar({
+    config, entorno, almacen, proveedor,
     extraer: crearExtractor({ apiKey: config.anthropicApiKey, timeoutMs: config.iaTimeoutMs }),
+    descargarMedia: crearDescargaMedia({ wahaBaseUrl: config.wahaBaseUrl, apiKey: config.wahaApiKey, session: config.wahaSession }),
   });
-  const { servidor } = crearServidor({ config, motor, almacen, proveedor });
   servidor.listen(config.puerto, config.host, () => {
-    console.log(`BrasPer WAHA escuchando en http://${config.host}:${config.puerto} | interactivos=${config.interactivos} | IA=${config.anthropicApiKey ? 'activa' : 'sin clave (el flujo pregunta paso a paso)'}`);
+    console.log(`BrasPer WAHA escuchando en http://${config.host}:${config.puerto} | backend=${config.backend} | interactivos=${config.interactivos} | IA=${config.anthropicApiKey ? 'activa' : 'sin clave (el flujo pregunta paso a paso)'}`);
   });
+  if (vigilante) vigilante.iniciar();
   try {
     const r = await fetch(`${config.wahaBaseUrl}/api/sessions/${config.wahaSession}`, { headers: { 'X-Api-Key': config.wahaApiKey }, signal: AbortSignal.timeout(3000) });
     const s = r.ok ? (await r.json()).status : `HTTP_${r.status}`;
