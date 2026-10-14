@@ -16,7 +16,9 @@ function e1() {
   f.link('verifica', 'cotiza', 'completa');
 
   // Respaldo: el mensaje no trae los tres datos.
-  const mo = elegir(f, 'mo', { tipo: 'buttons', body: '¡Hola! Soy el asistente de BrasPer. ¿Qué moneda quieres enviar?', opciones: MONEDAS_BTN, variable: 'moneda_origen', motivo: 'moneda_origen' });
+  const mo = elegir(f, 'mo', { tipo: 'buttons', body: '¡Hola! Soy el asistente de BrasPer. ¿Qué moneda quieres enviar?', opciones: MONEDAS_BTN, variable: 'moneda_origen', motivo: 'moneda_origen',
+    // Si en vez de tocar un botón el cliente escribe la remesa (p. ej. tras mandar una imagen), se interpreta ese texto; el segundo fallo escala.
+    siInvalido: 'extraer' });
   const md = elegir(f, 'md', { tipo: 'buttons', body: '¿En qué moneda recibe tu destinatario?', opciones: MONEDAS_BTN, variable: 'moneda_destino', motivo: 'moneda_destino' });
   const monto = pregunta(f, 'monto', { prompt: '¿Cuánto quieres enviar? Escribe solo el monto.', guardar: 'monto_raw', validar: 'monto', error: 'No entendí el monto. Escribe solo el número, por ejemplo 500.', motivo: 'monto_invalido' });
   f.link('verifica', mo.entrada, 'incompleta');

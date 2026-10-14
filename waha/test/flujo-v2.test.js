@@ -394,3 +394,20 @@ test('USD como moneda de envío ofrece la lista de bancos de dólares y cotiza e
   await m.tocar('savings', 'Ahorros');
   assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Otro']);
 }, { extraer: async (t) => (/dólares/.test(t) ? { monto: 300, moneda_origen: 'USD', moneda_destino: 'PEN' } : { monto: 500, moneda_origen: 'PEN', moneda_destino: 'BRL' }) }));
+
+test('una imagen como primer mensaje abre la lista de monedas; escribir la frase de la remesa después la interpreta y cotiza', () => conMundo(async (m) => {
+  await m.foto(); // el cliente manda una imagen cualquiera, sin texto
+  assert.equal(m.ultimo().texto, '¡Hola! Soy el asistente de BrasPer. ¿Qué moneda quieres enviar?');
+  assert.equal(m.falso.llamadas.filter((l) => l.nombre === 'createQuote').length, 0);
+  await m.decir('Quiero enviar 500 soles a Brasil');
+  const cot = m.falso.llamadas.find((l) => l.nombre === 'createQuote').data;
+  assert.deepEqual([cot.sendCurrency, cot.receiveCurrency, cot.sendAmount], ['PEN', 'BRL', 500]);
+  assert.match(m.proveedor.enviados.find((e) => /^¡Hola! Hoy 1 PEN/.test(e.texto || '')).texto, /Recibirás [\d.]+ BRL/);
+}, { extraer: async (t) => (t ? { monto: 500, moneda_origen: 'PEN', moneda_destino: 'BRL' } : {}) }));
+
+test('en la lista de monedas, dos textos que no dicen la remesa siguen pasando a una persona', () => conMundo(async (m) => {
+  await m.foto();
+  await m.decir('hola');
+  await m.decir('buenas');
+  assert.match(m.ultimo().texto, /^Te paso con una persona del equipo/);
+}, { extraer: async () => ({}) }));
