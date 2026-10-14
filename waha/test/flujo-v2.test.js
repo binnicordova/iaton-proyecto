@@ -115,7 +115,7 @@ test('cliente que vuelve y elige "Otra cuenta" para el destino: pide banco y nú
   await m.tocar('Otro');
   assert.equal(m.ultimo().texto, 'Escribe el nombre de tu banco.');
   await m.decir('Banco Pichincha');
-  assert.equal(m.ultimo().texto, 'Escribe el número de tu cuenta en Banco Pichincha.');
+  assert.equal(m.ultimo().texto, 'Escribe el número de la cuenta de tu destinatario en Banco Pichincha.');
   await m.decir('555-0099');
   await m.tocar('confirmar', 'Confirmar');
   assert.deepEqual([m.falso.ordenes.get('BR-0002').destinationBank, m.falso.ordenes.get('BR-0002').destinationAccount], ['Banco Pichincha', '555-0099']);
