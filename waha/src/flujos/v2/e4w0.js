@@ -7,7 +7,7 @@ function e4() {
   f.start();
   f.api('ev', 'route_evento', { edges: ['aprobada', 'rechazada', 'otro'] });
   f.link('start', 'ev');
-  f.text('aprobada', '✅ Pago verificado. Enviamos tu dinero a la cuenta ••{{vars.destino_ult4}}.');
+  f.text('aprobada', '✅ Pago verificado. Estamos enviando tu dinero a la cuenta ••{{vars.destino_ult4}}.');
   // El ticket se abre antes de escribir al cliente: si la red falla, no se manda un rechazo a medias y el vigilante reintenta todo junto.
   f.api('rech_reg', 'handoff_to_human:pago_no_validado');
   f.text('rech', 'No pudimos validar tu pago de la operación {{vars.operacion_id}}: {{vars.motivo}}.');

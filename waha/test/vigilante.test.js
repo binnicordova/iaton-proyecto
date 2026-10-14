@@ -25,7 +25,7 @@ test('al aprobarse la orden avisa una sola vez, aunque se revise varias veces', 
   assert.equal(m.proveedor.enviados.length, antes); // todavía en validación: no hay nada que avisar
   m.falso.aprobar('BR-0001');
   await v.tick();
-  assert.equal(m.ultimo().texto, '✅ Pago verificado. Enviamos tu dinero a la cuenta ••7890.');
+  assert.equal(m.ultimo().texto, '✅ Pago verificado. Estamos enviando tu dinero a la cuenta ••7890.');
   await v.tick();
   await v.tick();
   assert.equal(textos(m).filter((t) => t.startsWith('✅ Pago verificado')).length, 1);
@@ -86,7 +86,7 @@ test('si el cliente está en otra conversación, el aviso se aplaza y no se marc
   assert.equal(m.almacen.seguimiento('BR-0001').estadoAvisado, null);
   m.almacen.borrarEjecucion(T); // la conversación termina
   await v.tick();
-  assert.equal(m.ultimo().texto, '✅ Pago verificado. Enviamos tu dinero a la cuenta ••7890.');
+  assert.equal(m.ultimo().texto, '✅ Pago verificado. Estamos enviando tu dinero a la cuenta ••7890.');
   assert.equal(m.almacen.seguimiento('BR-0001').estadoAvisado, 'approved');
 }));
 
