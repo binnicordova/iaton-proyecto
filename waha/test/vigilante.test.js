@@ -25,10 +25,10 @@ test('al aprobarse la orden avisa una sola vez, aunque se revise varias veces', 
   assert.equal(m.proveedor.enviados.length, antes); // todavía en validación: no hay nada que avisar
   m.falso.aprobar('BR-0001');
   await v.tick();
-  assert.equal(m.ultimo().texto, '✅ Pago verificado. Estamos enviando tu dinero a la cuenta ••7890.');
+  assert.equal(m.ultimo().texto, '✅ *¡Pago verificado!*\nEstamos enviando tu dinero a la cuenta ••7890. Cuando esté todo listo, te envío tu comprobante por aquí.');
   await v.tick();
   await v.tick();
-  assert.equal(textos(m).filter((t) => t.startsWith('✅ Pago verificado')).length, 1);
+  assert.equal(textos(m).filter((t) => t.startsWith('✅ *¡Pago verificado!*')).length, 1);
   assert.equal(m.almacen.seguimiento('BR-0001').estadoAvisado, 'approved');
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0); // falta el recibo
 }));
@@ -48,7 +48,7 @@ test('cuando la factura está aceptada manda el recibo real como documento y cie
   assert.equal(doc.chatId, CHAT);
   assert.equal(doc.nombre, 'B001-00000001.pdf');
   assert.equal(doc.mimetype, 'application/pdf');
-  assert.equal(doc.texto, 'Tu comprobante de la operación BR-0001');
+  assert.equal(doc.texto, '📄 Tu comprobante de la operación BR-0001. ¡Gracias por confiar en BrasPer!');
   assert.match(Buffer.from(doc.base64, 'base64').toString(), /^%PDF-1\.4/);
   const s = m.almacen.seguimiento('BR-0001');
   assert.deepEqual([s.reciboEnviado, s.cerrado], [1, 1]);
@@ -60,7 +60,7 @@ test('si la orden salta de aprobada a facturada entre dos revisiones, igual se a
   await validando(m);
   m.falso.aprobar('BR-0001'); m.falso.exportar('BR-0001'); m.falso.facturar('BR-0001');
   await vigilante(m).tick();
-  assert.equal(textos(m).filter((t) => t.startsWith('✅ Pago verificado')).length, 1);
+  assert.equal(textos(m).filter((t) => t.startsWith('✅ *¡Pago verificado!*')).length, 1);
   assert.equal(m.proveedor.enviados.filter((e) => e.tipo === 'documento').length, 1);
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 1);
 }));
@@ -69,8 +69,8 @@ test('un pago rechazado avisa el motivo, abre un ticket con una persona y cierra
   await validando(m);
   m.falso.rechazar('BR-0001', 'El monto transferido no coincide');
   await vigilante(m).tick();
-  assert.ok(textos(m).includes('No pudimos validar tu pago de la operación BR-0001: El monto transferido no coincide.'));
-  assert.match(m.ultimo().texto, /^Una persona del equipo te contactará\. Estás en la posición 1/);
+  assert.ok(textos(m).includes('Lo sentimos 😕 No pudimos validar tu pago de la operación BR-0001.\nMotivo: El monto transferido no coincide'));
+  assert.match(m.ultimo().texto, /^Una persona del equipo te contactará\.\nEstás en la posición 1/);
   assert.equal(m.falso.tickets.size, 1);
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 1);
 }));
@@ -86,7 +86,7 @@ test('si el cliente está en otra conversación, el aviso se aplaza y no se marc
   assert.equal(m.almacen.seguimiento('BR-0001').estadoAvisado, null);
   m.almacen.borrarEjecucion(T); // la conversación termina
   await v.tick();
-  assert.equal(m.ultimo().texto, '✅ Pago verificado. Estamos enviando tu dinero a la cuenta ••7890.');
+  assert.equal(m.ultimo().texto, '✅ *¡Pago verificado!*\nEstamos enviando tu dinero a la cuenta ••7890. Cuando esté todo listo, te envío tu comprobante por aquí.');
   assert.equal(m.almacen.seguimiento('BR-0001').estadoAvisado, 'approved');
 }));
 
@@ -146,7 +146,7 @@ test('dos revisiones solapadas (una lenta y el temporizador que lanza otra) no d
   m.falso.aprobar('BR-0001');
   const v = vigilante(m);
   await Promise.all([v.tick(), v.tick(), v.tick()]);
-  assert.equal(textos(m).filter((t) => t.startsWith('✅ Pago verificado')).length, 1);
+  assert.equal(textos(m).filter((t) => t.startsWith('✅ *¡Pago verificado!*')).length, 1);
 }));
 
 test('un 503 de Firestore al leer la orden no cierra el seguimiento: se reintenta y el aviso llega', () => conMundo(async (m) => {
@@ -167,11 +167,11 @@ test('si el ticket de un pago rechazado no se puede abrir por la red, no se mand
   m.falso.fallar('/fn/requesthuman', { estado: 502, veces: 3 });
   await v.tick();
   await v.tick();
-  assert.ok(!textos(m).some((t) => t.startsWith('No pudimos validar')), 'el rechazo no se avisa a medias');
+  assert.ok(!textos(m).some((t) => t.startsWith('Lo sentimos 😕 No pudimos validar')), 'el rechazo no se avisa a medias');
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0);
   await v.tick(); // la red vuelve
   await v.tick();
-  assert.equal(textos(m).filter((t) => t.startsWith('No pudimos validar')).length, 1);
+  assert.equal(textos(m).filter((t) => t.startsWith('Lo sentimos 😕 No pudimos validar')).length, 1);
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 1);
   assert.equal(m.falso.tickets.size, 1);
 }));

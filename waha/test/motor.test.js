@@ -269,7 +269,7 @@ test('un fallo de transporte del backend avisa del problema temporal, conserva e
   };
   const { motor, proveedor, almacen } = crearMundo({ flujos, llamarFuncion });
   await motor.procesarMensaje(msg(T, 'hola'));
-  assert.deepEqual(proveedor.textos(), ['Tuvimos un problema temporal. Intenta de nuevo en un momento.']);
+  assert.deepEqual(proveedor.textos(), ['Tuvimos un problema temporal 😕 Escríbeme de nuevo en un momento y seguimos donde quedamos.']);
   assert.ok(almacen.cargarEjecucion(T), 'la conversación se conserva');
   assert.ok(!acciones.includes('handoff_to_human:error_motor'));
   await motor.procesarMensaje(msg(T, 'ya'));

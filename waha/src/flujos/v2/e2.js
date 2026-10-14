@@ -1,6 +1,6 @@
 // E2 v2: datos del cliente (o confirmación de los guardados), origen de fondos, cuentas de origen y destino, resumen y createOrder.
 const { Flow } = require('../../../../kapso/build/flow');
-const { MSG_SIN_TASAS, MONEDAS, BANCOS_POR_MONEDA, TIPOS_DOC, FONDOS, ids, escalar, pregunta, elegir, elegirPorMoneda, listaDinamica } = require('./helpers');
+const { MSG_SIN_TASAS, MONEDAS, BANCOS_POR_MONEDA, TIPOS_DOC, LARGO_DOC, FONDOS, ids, escalar, pregunta, elegir, elegirPorMoneda, listaDinamica } = require('./helpers');
 
 // Bloque de cuenta (origen o destino): lista de las cuentas guardadas de esa moneda o, si no hay o elige "Otra cuenta",
 // banco (lista por moneda; "Otro" = escribir el nombre) y número de cuenta. Termina en `${p}_ok`.
@@ -18,8 +18,8 @@ function bloqueCuenta(f, p, { lado, monedaVar, cuerpoLista, cuerpoBanco }) {
   const bancoTxt = pregunta(f, n('bt'), { prompt: 'Escribe el nombre de tu banco.', guardar: `${lado}_banco_raw`, validar: `banco_${lado}`, error: 'No entendí el nombre del banco. Escríbelo de nuevo.', motivo: `banco_${lado}_invalido` });
   f.api(n('bset'), `banco_set:${lado}`);
   const num = pregunta(f, n('nm'), {
-    prompt: `Escribe el número de la cuenta en {{vars.${lado}_banco}}.`, guardar: `${lado}_cuenta_raw`, validar: `cuenta_${lado}`,
-    error: 'Ese número de cuenta no parece válido. Escríbelo solo con dígitos y guiones.', motivo: `cuenta_${lado}_invalida`,
+    prompt: `Escribe el número de tu cuenta en {{vars.${lado}_banco}}.`, guardar: `${lado}_cuenta_raw`, validar: `cuenta_${lado}`,
+    error: 'No pude leer ese número de cuenta 🤔 Escríbelo solo con dígitos y guiones.', motivo: `cuenta_${lado}_invalida`,
   });
   f.link(n('opc'), banco.entrada, 'sin_cuentas').link(n('route'), banco.entrada, 'otra');
   f.linkAll(banco.ruta, n('bset'), banco.ids.filter((b) => b !== 'Otro'));
@@ -39,36 +39,37 @@ function e2() {
   f.link('init', 'perfil');
 
   // Cliente nuevo: nombre, tipo y número de documento, correo.
-  const nom = pregunta(f, 'nom', { prompt: '¿Cuál es tu nombre completo? Escribe nombre y apellido.', guardar: 'nombre_raw', validar: 'nombre', error: 'Necesito tu nombre y apellido, por ejemplo Ana Souza.', motivo: 'nombre_invalido' });
-  const dt = elegir(f, 'dt', { tipo: 'list', body: '¿Qué tipo de documento tienes?', opciones: TIPOS_DOC, variable: 'doc_tipo', motivo: 'doc_tipo' });
-  const dn = pregunta(f, 'dn', { prompt: 'Escribe tu número de {{vars.doc_tipo}}.', guardar: 'doc_raw', validar: 'doc', error: 'Ese número no es válido para {{vars.doc_tipo}}. Revísalo y envíalo de nuevo.', motivo: 'doc_invalido' });
-  const co = pregunta(f, 'co', { prompt: '¿A qué correo electrónico te enviamos tu comprobante?', guardar: 'correo_raw', validar: 'correo', error: 'Ese correo no parece válido. Escríbelo de nuevo, por ejemplo ana@correo.com.', motivo: 'correo_invalido' });
+  const nom = pregunta(f, 'nom', { prompt: '¡Perfecto! 🙌 Para registrar tu operación necesito unos datos.\n\n¿Cuál es tu nombre completo, como figura en tu documento?', guardar: 'nombre_raw', validar: 'nombre', error: 'Escríbelo con nombre y apellido, por ejemplo Ana Souza.', motivo: 'nombre_invalido' });
+  const dt = elegir(f, 'dt', { tipo: 'list', body: '¿Con qué documento te identificas?', opciones: TIPOS_DOC, variable: 'doc_tipo', motivo: 'doc_tipo' });
+  const dn = pregunta(f, 'dn', { prompt: 'Escribe tu número de {{vars.doc_tipo}} ({{vars.doc_largo}}).', guardar: 'doc_raw', validar: 'doc', error: 'No pude validar ese número de {{vars.doc_tipo}} 🤔 Revisa que tenga {{vars.doc_largo}} e inténtalo de nuevo.', motivo: 'doc_invalido' });
+  const co = pregunta(f, 'co', { prompt: '¿A qué correo te enviamos tu comprobante?', guardar: 'correo_raw', validar: 'correo', error: 'Ese correo no parece válido. Escríbelo de nuevo, por ejemplo ana@correo.com.', motivo: 'correo_invalido' });
   f.link('perfil', nom.entrada, 'nuevo');
-  f.link(nom.salida, dt.entrada, 'valido').linkAll(dt.ruta, dn.entrada, ids(TIPOS_DOC)).link(dn.salida, co.entrada, 'valido');
+  f.link(nom.salida, dt.entrada, 'valido').link(dn.salida, co.entrada, 'valido');
+  for (const t of TIPOS_DOC) f.setvar(`dl_${t.id}`, 'doc_largo', LARGO_DOC[t.id]).link(dt.ruta, `dl_${t.id}`, t.id).link(`dl_${t.id}`, dn.entrada);
 
   // Cliente que vuelve: se confirman sus datos guardados.
   const cf = elegir(f, 'cf', {
-    tipo: 'buttons', body: 'Usaremos tu {{vars.doc_tipo}} {{vars.doc_num}} y tu correo {{vars.correo_masc}}. ¿Es correcto?',
+    tipo: 'buttons', body: '¡Qué gusto verte de nuevo! 👋\nUsaremos tu {{vars.doc_tipo}} {{vars.doc_num}} y tu correo {{vars.correo_masc}}. ¿Es correcto?',
     opciones: [{ id: 'si_datos', title: 'Sí, es correcto' }, { id: 'cambiar', title: 'Cambiar mis datos' }], variable: 'confirma_datos', motivo: 'confirma_datos',
   });
   f.link('perfil', cf.entrada, 'existe').link(cf.ruta, nom.entrada, 'cambiar');
 
   // Origen de fondos y cuentas.
-  const fo = elegir(f, 'fo', { tipo: 'list', body: '¿De dónde provienen los fondos?', opciones: FONDOS, variable: 'fondos', motivo: 'origen_fondos' });
+  const fo = elegir(f, 'fo', { tipo: 'list', body: '¿Cuál es el origen de los fondos que vas a enviar?', opciones: FONDOS, variable: 'fondos', motivo: 'origen_fondos' });
   f.link(cf.ruta, fo.entrada, 'si_datos').link(co.salida, fo.entrada, 'valido');
-  const origen = bloqueCuenta(f, 'cu_o', { lado: 'origen', monedaVar: 'moneda_origen', cuerpoLista: 'Elige la cuenta desde la que vas a pagar:', cuerpoBanco: '¿Desde qué banco nos envías tu dinero?' });
-  const destino = bloqueCuenta(f, 'cu_d', { lado: 'destino', monedaVar: 'moneda_destino', cuerpoLista: 'Elige la cuenta donde recibirá tu destinatario:', cuerpoBanco: '¿En qué banco recibirá tu destinatario?' });
+  const origen = bloqueCuenta(f, 'cu_o', { lado: 'origen', monedaVar: 'moneda_origen', cuerpoLista: '¿Desde qué cuenta vas a transferir?', cuerpoBanco: '¿Desde qué banco vas a transferir?' });
+  const destino = bloqueCuenta(f, 'cu_d', { lado: 'destino', monedaVar: 'moneda_destino', cuerpoLista: '¿A qué cuenta recibirá tu destinatario?', cuerpoBanco: '¿En qué banco recibirá tu destinatario?' });
   f.linkAll(fo.ruta, origen.entrada, ids(FONDOS));
   f.link(origen.salida, destino.entrada);
 
   // Resumen y confirmación antes de crear la orden.
   const rs = elegir(f, 'rs', {
     tipo: 'buttons',
-    body: 'Envías {{vars.total_enviar_txt}} {{vars.moneda_origen}} desde {{vars.origen_banco}} ••{{vars.origen_ult4}}.\nRecibe {{vars.recibe_txt}} {{vars.moneda_destino}} en {{vars.destino_banco}} ••{{vars.destino_ult4}}.\nTasa {{vars.tasa_txt}}. ¿Confirmas?',
+    body: '📋 *Resumen de tu operación*\n📤 Envías: {{vars.total_enviar_txt}} {{vars.moneda_origen}} desde {{vars.origen_banco}} ••{{vars.origen_ult4}}\n📥 Recibe: {{vars.recibe_txt}} {{vars.moneda_destino}} en {{vars.destino_banco}} ••{{vars.destino_ult4}}\n📈 Tasa: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}\n\n¿Todo correcto?',
     opciones: [{ id: 'confirmar', title: 'Confirmar' }, { id: 'cambiar', title: 'Cambiar datos' }, { id: 'cancelar', title: 'Cancelar' }], variable: 'confirma_e2', motivo: 'confirma_e2',
   });
   f.link(destino.salida, rs.entrada);
-  f.text('cancelada', 'Listo, cancelé la solicitud. Cuando quieras, escríbeme de nuevo.');
+  f.text('cancelada', 'Listo, cancelé la solicitud. Cuando quieras, escríbeme para hacer una nueva cotización.');
   f.link(rs.ruta, nom.entrada, 'cambiar').link(rs.ruta, 'cancelada', 'cancelar');
 
   // Crear la orden y tratar lo que responda el backend.
@@ -76,16 +77,16 @@ function e2() {
   f.link(rs.ruta, 'crea', 'confirmar');
   f.setvar('listo', 'continuar', 'si');
   f.link('crea', 'listo', 'ok');
-  f.link('crea', escalar(f, 'crea_grande', 'monto_grande', { mensaje: 'Por el monto, te paso con una persona del equipo para ayudarte.' }), 'requiere_persona');
-  f.link('crea', escalar(f, 'crea_sin', 'creacion_no_disponible', { mensaje: 'Ahora no puedo crear tu operación con seguridad. Te paso con una persona del equipo para ayudarte.' }), 'sin_servicio');
+  f.link('crea', escalar(f, 'crea_grande', 'monto_grande', { mensaje: 'Para montos grandes te atiende una persona del equipo, así cuidamos tu operación 🙌' }), 'requiere_persona');
+  f.link('crea', escalar(f, 'crea_sin', 'creacion_no_disponible', { mensaje: 'Ahora no puedo crear tu operación con seguridad. Te paso con una persona del equipo para ayudarte 🙋' }), 'sin_servicio');
 
   // La cotización venció (dura 15 min): se cotiza de nuevo con los mismos montos y se pide confirmar la nueva tasa.
   f.api('rq', 'quote_create', { edges: ['ok', 'sin_servicio', 'par_invalido', 'monto_bajo', 'requiere_persona'] });
   f.link('crea', 'rq', 'quote_expirada');
   const rc = elegir(f, 'rc', {
     tipo: 'buttons',
-    body: 'La tasa cambió. Nueva cotización: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}. Total a transferir {{vars.total_enviar_txt}} {{vars.moneda_origen}}. Recibirás {{vars.recibe_txt}} {{vars.moneda_destino}}.',
-    opciones: [{ id: 'continuar', title: 'Continuar' }, { id: 'cancelar', title: 'Cancelar' }], variable: 'tasa_nueva', motivo: 'tasa_nueva',
+    body: 'La tasa se actualizó mientras completabas tus datos 🔄\n\n💳 *Total a transferir: {{vars.total_enviar_txt}} {{vars.moneda_origen}}*\n📥 *Recibes: {{vars.recibe_txt}} {{vars.moneda_destino}}*\n📈 Tasa: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}\n\n¿Continuamos con la nueva tasa?',
+    opciones: [{ id: 'continuar', title: 'Sí, continuar' }, { id: 'cancelar', title: 'Cancelar' }], variable: 'tasa_nueva', motivo: 'tasa_nueva',
   });
   f.link('rq', rc.entrada, 'ok');
   const sinTasas = escalar(f, 'rq_esc', 'tasas_no_disponibles', { mensaje: MSG_SIN_TASAS });
@@ -93,7 +94,7 @@ function e2() {
   f.link(rc.ruta, 'crea', 'continuar').link(rc.ruta, 'cancelada', 'cancelar');
 
   // El backend rechazó un dato: se repregunta solo ese campo.
-  f.text('inv', 'Uno de tus datos no pasó la validación. Revisémoslo.');
+  f.text('inv', 'Uno de tus datos no pasó la validación 🤔 Revisémoslo juntos.');
   f.api('campo', 'route_campo', { edges: ['nombre', 'documento', 'correo', 'otro'] });
   f.link('crea', 'inv', 'dato_invalido').link('inv', 'campo');
   f.link('campo', nom.entrada, 'nombre').link('campo', dt.entrada, 'documento').link('campo', co.entrada, 'correo').link('campo', fo.entrada, 'otro');

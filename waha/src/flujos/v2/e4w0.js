@@ -7,10 +7,10 @@ function e4() {
   f.start();
   f.api('ev', 'route_evento', { edges: ['aprobada', 'rechazada', 'otro'] });
   f.link('start', 'ev');
-  f.text('aprobada', '✅ Pago verificado. Estamos enviando tu dinero a la cuenta ••{{vars.destino_ult4}}.');
+  f.text('aprobada', '✅ *¡Pago verificado!*\nEstamos enviando tu dinero a la cuenta ••{{vars.destino_ult4}}. Cuando esté todo listo, te envío tu comprobante por aquí.');
   // El ticket se abre antes de escribir al cliente: si la red falla, no se manda un rechazo a medias y el vigilante reintenta todo junto.
   f.api('rech_reg', 'handoff_to_human:pago_no_validado');
-  f.text('rech', 'No pudimos validar tu pago de la operación {{vars.operacion_id}}: {{vars.motivo}}.');
+  f.text('rech', 'Lo sentimos 😕 No pudimos validar tu pago de la operación {{vars.operacion_id}}.\nMotivo: {{vars.motivo}}');
   f.text('rech_msg', 'Una persona del equipo te contactará.{{vars.cola_texto}}');
   f.handoff('rech_fin');
   f.setvar('nada', 'evento_ignorado', 'si');
@@ -31,7 +31,7 @@ function w0() {
   f.link('estado', 'c1', 'e1').link('c1', 'sigue1').link('sigue1', 'c2', 'seguir').link('c2', 'sigue2').link('sigue2', 'c3', 'seguir');
   f.link('sigue1', 'fin', 'fin').link('sigue2', 'fin', 'fin');
   f.link('estado', 'c3', 'e3');
-  f.text('status', 'Tu operación {{vars.operacion_id}} está {{vars.estado_texto}}.');
+  f.text('status', 'Tu operación {{vars.operacion_id}} está {{vars.estado_texto}}. Te escribo apenas haya novedades.');
   f.link('estado', 'status', 'estado');
   f.text('esc', 'Una persona del equipo ya está atendiendo tu caso.');
   f.link('estado', 'esc', 'escalada');

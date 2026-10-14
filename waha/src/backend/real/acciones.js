@@ -43,7 +43,7 @@ function varsOrden(o) {
     operacion_id: o.orderId, moneda_origen: o.sendCurrency, moneda_destino: o.receiveCurrency, monto_txt: dinero(o.sendAmount),
     tasa_txt: String(o.rate), comision_txt: dinero(o.commission), impuesto_txt: dinero(o.tax), total_enviar_txt: dinero(o.total),
     recibe_txt: dinero(o.receiveAmount), tasa_hasta: hora12Lima(o.rateLockedUntil), lock_iso: o.rateLockedUntil,
-    pago_titular: pa.holder || '', pago_banco: pa.bank || '', pago_cuenta: pa.accountNumber || '', pago_pix_linea: pa.pixKey ? `\nPix: ${pa.pixKey}` : '',
+    pago_titular: pa.holder || '', pago_banco: pa.bank || '', pago_cuenta: pa.accountNumber || '', pago_pix_linea: pa.pixKey ? `\n🔑 Pix: ${pa.pixKey}` : '',
     origen_ult4: V.ultimos4(o.sourceAccount), destino_ult4: V.ultimos4(o.destinationAccount),
   };
 }
@@ -235,7 +235,7 @@ function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, de
       try {
         const t = await funciones.llamar(phone, 'requestHuman', { summary: partes.join(' ').slice(0, 1500), orderId: vars.operacion_id || null, channel: 'whatsapp', language: 'es' });
         await kv.put(`handoff:${phone}`, JSON.stringify({ handoffId: t.handoffId, motivo: arg || '' }));
-        return { vars: { cola_texto: ` Estás en la posición ${t.position} (espera aproximada: ${t.estimatedWaitMinutes} min).` } };
+        return { vars: { cola_texto: `\nEstás en la posición ${t.position} de la cola (espera aproximada: ${t.estimatedWaitMinutes} min).` } };
       } catch (e) {
         if (!esNegocio(e)) throw e;
         registrar({ tipo: 'error_backend', estado: String(e.estado || ''), detalle: `requestHuman:${e.codigo}` });

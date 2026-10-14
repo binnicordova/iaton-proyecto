@@ -9,13 +9,11 @@ function e3() {
   f.link('start', 'init');
   f.api('info', 'orden_info');
   f.link('init', 'info');
-  f.text('instr', 'Tu operación es {{vars.operacion_id}}.\nTransfiere {{vars.total_enviar_txt}} {{vars.moneda_origen}} a:\nTitular: {{vars.pago_titular}}\nBanco: {{vars.pago_banco}}\nCuenta: {{vars.pago_cuenta}}{{vars.pago_pix_linea}}\nUsa la cuenta de {{vars.moneda_origen}}, no otra moneda.\nTienes hasta las {{vars.tasa_hasta}} para transferir con esta tasa.');
-  f.link('info', 'instr');
   const ac = elegir(f, 'ac', {
-    tipo: 'buttons', body: 'Cuando termines la transferencia, toca "Ya transferí".',
+    tipo: 'buttons', body: '✅ *Operación {{vars.operacion_id}} registrada*\n\nTransfiere *{{vars.total_enviar_txt}} {{vars.moneda_origen}}* a esta cuenta:\n🏦 Banco: {{vars.pago_banco}}\n👤 Titular: {{vars.pago_titular}}\n🔢 Cuenta: {{vars.pago_cuenta}}{{vars.pago_pix_linea}}\n\n⏱ Tienes hasta las {{vars.tasa_hasta}} para transferir con esta tasa.\n⚠ Transfiere en {{vars.moneda_origen}}, no en otra moneda.\n\nCuando termines, toca *Ya transferí*.',
     opciones: [{ id: 'ya_transferi', title: 'Ya transferí' }, { id: 'cancelar', title: 'Cancelar operación' }], variable: 'accion_e3', motivo: 'accion_e3',
   });
-  f.link('instr', ac.entrada); // sin horario propio: el backend no publica uno y el bot no lo inventa
+  f.link('info', ac.entrada); // sin horario propio: el backend no publica uno y el bot no lo inventa
 
   // Cancelar con confirmación.
   const cc = elegir(f, 'cc', {
@@ -23,34 +21,34 @@ function e3() {
     opciones: [{ id: 'si_cancelar', title: 'Sí, cancelar' }, { id: 'continuar', title: 'Continuar' }], variable: 'confirma_cancelar', motivo: 'confirma_cancelar',
   });
   f.api('cancela', 'cancel_order');
-  f.text('cancelada', 'Listo, cancelé la operación {{vars.operacion_id}}.');
+  f.text('cancelada', 'Listo, cancelé la operación {{vars.operacion_id}}. Cuando quieras, escríbeme para hacer una nueva cotización.');
   f.link(ac.ruta, cc.entrada, 'cancelar').link(cc.ruta, 'cancela', 'si_cancelar').link(cc.ruta, ac.entrada, 'continuar').link('cancela', 'cancelada');
 
   // Constancia: foto (a Storage) y número de operación bancaria. El asistente no evalúa el comprobante.
   f.api('vigencia', 'check_lock', { edges: ['vigente', 'vencida'] });
   f.link(ac.ruta, 'vigencia', 'ya_transferi');
-  f.text('pide_foto', 'Perfecto. Envíame la foto del comprobante (imagen o PDF).');
+  f.text('pide_foto', '¡Gracias! 📎 Envíame la foto o el PDF del comprobante de tu transferencia.');
   f.setvar('marca_vencida', 'tasa_vencida', 'si');
-  f.text('aviso_vencida', 'Tu tasa asegurada venció mientras transferías. Igual recibo tu constancia: una persona confirmará la tasa final al validar tu pago.');
+  f.text('aviso_vencida', 'Tu tasa asegurada venció mientras transferías, pero igual recibo tu comprobante. Una persona confirmará la tasa final al validar tu pago.');
   f.link('vigencia', 'pide_foto', 'vigente').link('vigencia', 'marca_vencida', 'vencida').link('marca_vencida', 'aviso_vencida').link('aviso_vencida', 'pide_foto');
   f.wait('esp_foto');
   f.api('foto', 'proof_upload', { edges: ['subida', 'sin_foto', 'muy_grande', 'fallo_subida', 'escalar'] });
   f.link('pide_foto', 'esp_foto').link('esp_foto', 'foto');
-  f.text('sin_foto', 'No recibí una foto o PDF. Envíame la foto o captura del comprobante.');
-  f.text('grande', 'El archivo pesa más de 8 MB. Envía una foto más liviana o un PDF más pequeño.');
-  f.text('falla', 'No pude guardar tu archivo. Envíalo de nuevo.');
+  f.text('sin_foto', 'No veo ninguna foto o PDF en tu mensaje 🤔 Envía una foto o captura del comprobante.');
+  f.text('grande', 'El archivo es muy pesado (máximo 8 MB). Envía una foto más liviana o un PDF más pequeño.');
+  f.text('falla', 'No pude guardar tu archivo 😕 Inténtalo de nuevo, por favor.');
   f.link('foto', 'sin_foto', 'sin_foto').link('sin_foto', 'esp_foto');
   f.link('foto', 'grande', 'muy_grande').link('grande', 'esp_foto');
   f.link('foto', 'falla', 'fallo_subida').link('falla', 'esp_foto');
   f.link('foto', escalar(f, 'foto_esc', 'comprobante_no_recibido'), 'escalar');
 
-  const nop = pregunta(f, 'nop', { prompt: 'Ahora escribe el número de operación bancaria.', guardar: 'operacion_raw', validar: 'operacion', error: 'Ese número no parece válido. Usa de 4 a 24 letras, dígitos o guiones.', motivo: 'n_operacion_invalido' });
+  const nop = pregunta(f, 'nop', { prompt: 'Ahora escribe el número de operación que aparece en tu comprobante.', guardar: 'operacion_raw', validar: 'operacion', error: 'Ese número no parece válido. Debe tener entre 4 y 24 letras o dígitos (se aceptan guiones).', motivo: 'n_operacion_invalido' });
   f.link('foto', nop.entrada, 'subida');
   f.api('envia', 'proof_submit', { edges: ['ok', 'duplicado', 'sin_subida', 'ya_recibido', 'invalido'] });
   f.link(nop.salida, 'envia', 'valido');
-  f.text('cierre', 'Una persona validará tu pago. Te escribo cuando esté listo.');
-  f.text('dup', 'Ese número de operación ya está en otra operación. Revísalo y envíalo de nuevo.');
-  f.text('nofoto', 'No encontré tu foto. Envíamela de nuevo.');
+  f.text('cierre', '¡Listo! Recibimos tu comprobante ✅\nUna persona validará tu pago y te escribo apenas esté listo.');
+  f.text('dup', 'Ese número ya está registrado en otra operación. Revísalo en tu comprobante y envíalo de nuevo.');
+  f.text('nofoto', 'No encontré tu foto 🤔 Envíamela de nuevo.');
   f.text('ya', 'Ya recibimos tu comprobante. Una persona validará tu pago.');
   f.link('envia', 'cierre', 'ok');
   f.link('envia', 'dup', 'duplicado').link('dup', nop.entrada);
