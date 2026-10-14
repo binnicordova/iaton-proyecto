@@ -9,7 +9,7 @@ test('cliente nuevo: de la cotización hasta que la orden queda en validación e
   const e = m.proveedor.enviados;
   await m.decir('Hola, quiero enviar 500 reales a Perú');
   assert.equal(e[0].tipo, 'botones');
-  assert.match(e[0].texto, new RegExp(`^¡Hola! Hoy 1 BRL = 0\\.6745 PEN\\. Comisión 12\\.00 \\+ impuesto 2\\.16 BRL\\. Total a transferir 514\\.16 BRL\\. Recibirás 337\\.25 PEN\\. Tasa asegurada hasta las ${HORA}$`));
+  assert.match(e[0].texto, new RegExp(`^💱 \\*Tu cotización\\*\n📤 Envías: 500\\.00 BRL\n➕ Comisión \\+ impuesto: 14\\.16 BRL\n💳 \\*Total a transferir: 514\\.16 BRL\\*\n📥 \\*Recibes: 337\\.25 PEN\\*\n📈 Tasa: 1 BRL = 0\\.6745 PEN\n⏱ Asegurada hasta las ${HORA}$`));
   assert.deepEqual(e[0].opciones.map((o) => o.id), ['continuar', 'cambiar_monto', 'persona']);
   assert.equal(e[1].tipo, 'enlace');
   assert.equal(m.falso.llamadas.find((l) => l.nombre === 'createQuote').data.channel, 'whatsapp');
@@ -158,7 +158,7 @@ test('un monto menor al mínimo explica el mínimo y vuelve a pedir el monto', (
   assert.equal(m.proveedor.enviados.at(-2).texto, 'Ese monto es menor al mínimo (unos 10 USD equivalentes). Escribe un monto mayor.');
   assert.equal(m.ultimo().texto, '¿Cuánto quieres enviar? Escribe solo el monto.');
   await m.decir('500');
-  assert.match(m.proveedor.enviados.at(-2).texto, /Total a transferir 514\.16 BRL/); // la oferta va antes del enlace web
+  assert.match(m.proveedor.enviados.at(-2).texto, /Total a transferir: 514\.16 BRL/); // la oferta va antes del enlace web
 }, { extraer: async () => ({ monto: 10, moneda_origen: 'BRL', moneda_destino: 'PEN' }) }));
 
 test('datos inválidos para el backend: se repregunta solo el campo que rechazó', () => conMundo(async (m) => {
@@ -260,7 +260,7 @@ test('si Firebase no responde, se avisa del problema temporal y el siguiente men
   assert.equal(m.falso.tickets.size, 0); // no se escaló a nadie
   assert.ok(m.almacen.cargarEjecucion(T));
   await m.decir('ya');
-  assert.match(m.proveedor.enviados.at(-2).texto, /^¡Hola! Hoy 1 BRL = 0\.6745 PEN/);
+  assert.match(m.proveedor.enviados.at(-2).texto, /^💱 \*Tu cotización\*\n📤 Envías: 500\.00 BRL/);
 }));
 
 test('si createOrder falla por red, la orden no se pierde ni se duplica: el siguiente mensaje reintenta', () => conMundo(async (m) => {
@@ -351,7 +351,7 @@ test('E3: una foto enviada antes de tocar "Ya transferí" no sube nada ni avanza
 test('sentido inverso PEN → BRL: bancos peruanos para enviar y brasileños para recibir, cuenta de pago en soles y orden en validación', () => conMundo(async (m) => {
   const e = m.proveedor.enviados;
   await m.decir('Quiero enviar 500 soles a Brasil');
-  assert.match(e[0].texto, /^¡Hola! Hoy 1 PEN = [\d.]+ BRL\. Comisión [\d.]+ \+ impuesto [\d.]+ PEN\. Total a transferir [\d.]+ PEN\. Recibirás [\d.]+ BRL\./);
+  assert.match(e[0].texto, /^💱 \*Tu cotización\*\n📤 Envías: 500\.00 PEN\n➕ Comisión \+ impuesto: [\d.]+ PEN\n💳 \*Total a transferir: [\d.]+ PEN\*\n📥 \*Recibes: [\d.]+ BRL\*\n📈 Tasa: 1 PEN = [\d.]+ BRL\n⏱ Asegurada hasta las /);
   const cot = m.falso.llamadas.find((l) => l.nombre === 'createQuote').data;
   assert.deepEqual([cot.sendCurrency, cot.receiveCurrency, cot.sendAmount, cot.channel], ['PEN', 'BRL', 500, 'whatsapp']);
   await m.tocar('continuar', 'Continuar');
@@ -402,7 +402,7 @@ test('una imagen como primer mensaje abre la lista de monedas; escribir la frase
   await m.decir('Quiero enviar 500 soles a Brasil');
   const cot = m.falso.llamadas.find((l) => l.nombre === 'createQuote').data;
   assert.deepEqual([cot.sendCurrency, cot.receiveCurrency, cot.sendAmount], ['PEN', 'BRL', 500]);
-  assert.match(m.proveedor.enviados.find((e) => /^¡Hola! Hoy 1 PEN/.test(e.texto || '')).texto, /Recibirás [\d.]+ BRL/);
+  assert.match(m.proveedor.enviados.find((e) => /^💱 \*Tu cotización\*/.test(e.texto || '')).texto, /Recibes: [\d.]+ BRL/);
 }, { extraer: async (t) => (t ? { monto: 500, moneda_origen: 'PEN', moneda_destino: 'BRL' } : {}) }));
 
 test('en la lista de monedas, dos textos que no dicen la remesa siguen pasando a una persona', () => conMundo(async (m) => {

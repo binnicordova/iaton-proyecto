@@ -33,7 +33,7 @@ function e1() {
   f.link('cotiza', 'bajo', 'monto_bajo').link('bajo', monto.entrada);
   f.link('cotiza', escalar(f, 'tasas', 'tasas_no_disponibles', { mensaje: MSG_SIN_TASAS }), 'sin_servicio');
   f.link('cotiza', escalar(f, 'grande', 'monto_grande', { mensaje: 'Por el monto, te paso con una persona del equipo para ayudarte.' }), 'requiere_persona');
-  f.buttons('oferta', '¡Hola! Hoy 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}. Comisión {{vars.comision_txt}} + impuesto {{vars.impuesto_txt}} {{vars.moneda_origen}}. Total a transferir {{vars.total_enviar_txt}} {{vars.moneda_origen}}. Recibirás {{vars.recibe_txt}} {{vars.moneda_destino}}. Tasa asegurada hasta las {{vars.tasa_hasta}}', [
+  f.buttons('oferta', '💱 *Tu cotización*\n📤 Envías: {{vars.monto_txt}} {{vars.moneda_origen}}\n➕ Comisión + impuesto: {{vars.cargos_txt}} {{vars.moneda_origen}}\n💳 *Total a transferir: {{vars.total_enviar_txt}} {{vars.moneda_origen}}*\n📥 *Recibes: {{vars.recibe_txt}} {{vars.moneda_destino}}*\n📈 Tasa: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}\n⏱ Asegurada hasta las {{vars.tasa_hasta}}', [
     { id: 'continuar', title: 'Continuar' }, { id: 'cambiar_monto', title: 'Cambiar monto' }, { id: 'persona', title: 'Hablar con persona' },
   ]);
   f.cta('web', '¿Prefieres hacerlo desde la web?', 'Abrir formulario web', FORMULARIO_WEB);

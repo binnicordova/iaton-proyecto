@@ -32,7 +32,7 @@ const reinicio = (clave, extra = {}) => ({ [`fallos_${clave}`]: 0, ...extra });
 function varsCotizacion(q) {
   return {
     quote_id: q.id, moneda_origen: q.sendCurrency, moneda_destino: q.receiveCurrency, monto_txt: dinero(q.sendAmount),
-    tasa_txt: String(q.rate), comision_txt: dinero(q.commission), impuesto_txt: dinero(q.tax), total_enviar_txt: dinero(q.total),
+    tasa_txt: String(q.rate), comision_txt: dinero(q.commission), impuesto_txt: dinero(q.tax), cargos_txt: dinero(Math.round((q.commission + q.tax) * 100) / 100), total_enviar_txt: dinero(q.total),
     recibe_txt: dinero(q.receiveAmount), tasa_hasta: hora12Lima(q.expiresAt), quote_expira_iso: q.expiresAt,
   };
 }
