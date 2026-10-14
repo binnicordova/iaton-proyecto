@@ -347,3 +347,50 @@ test('E3: una foto enviada antes de tocar "Ya transferí" no sube nada ni avanza
   await m.tocar('ya_transferi', 'Ya transferí'); // el flujo sigue ahí: puede continuar con normalidad
   assert.equal(m.ultimo().texto, 'Perfecto. Envíame la foto del comprobante (imagen o PDF).');
 }));
+
+test('sentido inverso PEN → BRL: bancos peruanos para enviar y brasileños para recibir, cuenta de pago en soles y orden en validación', () => conMundo(async (m) => {
+  const e = m.proveedor.enviados;
+  await m.decir('Quiero enviar 500 soles a Brasil');
+  assert.match(e[0].texto, /^¡Hola! Hoy 1 PEN = [\d.]+ BRL\. Comisión [\d.]+ \+ impuesto [\d.]+ PEN\. Total a transferir [\d.]+ PEN\. Recibirás [\d.]+ BRL\./);
+  const cot = m.falso.llamadas.find((l) => l.nombre === 'createQuote').data;
+  assert.deepEqual([cot.sendCurrency, cot.receiveCurrency, cot.sendAmount, cot.channel], ['PEN', 'BRL', 500, 'whatsapp']);
+  await m.tocar('continuar', 'Continuar');
+  await m.decir('Luis Alberto Quispe');
+  await m.tocar('DNI');
+  await m.decir('45678912');
+  await m.decir('luis@example.com');
+  await m.tocar('salary', 'Sueldo');
+  assert.equal(m.ultimo().texto, '¿Desde qué banco nos envías tu dinero?');
+  assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Otro']);
+  await m.tocar('Interbank');
+  await m.decir('200-3012345678');
+  assert.equal(m.ultimo().texto, '¿En qué banco recibirá tu destinatario?');
+  assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Caixa', 'Otro']);
+  await m.tocar('Nubank');
+  await m.decir('0001-98765432-1');
+  assert.match(m.ultimo().texto, /^Envías [\d.]+ PEN desde Interbank ••5678\.\nRecibe [\d.]+ BRL en Nubank ••4321\./);
+  await m.tocar('confirmar', 'Confirmar');
+  const o = m.falso.ordenes.get('BR-0001');
+  assert.deepEqual([o.sendCurrency, o.receiveCurrency, o.docType, o.fundsSource, o.sourceBank, o.destinationBank], ['PEN', 'BRL', 'DNI', 'salary', 'Interbank', 'Nubank']);
+  const instr = e.at(-2).texto;
+  assert.match(instr, /^Tu operación es BR-0001\.\nTransfiere [\d.]+ PEN a:\nTitular: BrasPer \(DEMO\)\nBanco: BCP\nCuenta: 191-0000000-0-00\n/);
+  assert.ok(!/Pix/.test(instr), 'la cuenta en soles no tiene Pix');
+  await m.tocar('ya_transferi', 'Ya transferí');
+  await m.foto();
+  await m.decir('op-5555');
+  assert.equal(m.falso.ordenes.get('BR-0001').status, 'validating');
+  m.falso.aprobar('BR-0001');
+}, { extraer: async () => ({ monto: 500, moneda_origen: 'PEN', moneda_destino: 'BRL' }) }));
+
+test('USD como moneda de envío ofrece la lista de bancos de dólares y cotiza en dólares', () => conMundo(async (m) => {
+  await m.decir('Quiero enviar 300 dólares a Perú');
+  const cot = m.falso.llamadas.find((l) => l.nombre === 'createQuote').data;
+  assert.deepEqual([cot.sendCurrency, cot.receiveCurrency, cot.sendAmount], ['USD', 'PEN', 300]);
+  await m.tocar('continuar', 'Continuar');
+  await m.decir('Ana Paula Souza');
+  await m.tocar('CPF');
+  await m.decir('529.982.247-25');
+  await m.decir('ana@example.com');
+  await m.tocar('savings', 'Ahorros');
+  assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Otro']);
+}, { extraer: async (t) => (/dólares/.test(t) ? { monto: 300, moneda_origen: 'USD', moneda_destino: 'PEN' } : { monto: 500, moneda_origen: 'PEN', moneda_destino: 'BRL' }) }));
