@@ -29,11 +29,11 @@ function e1() {
   // Resultados de la cotización.
   f.text('par_err', 'Esa combinación de monedas no está disponible. Elige otras.');
   f.link('cotiza', 'par_err', 'par_invalido').link('par_err', mo.entrada);
-  f.text('bajo', 'Ese monto es menor al mínimo (unos 10 USD equivalentes). Escribe un monto mayor.');
+  f.text('bajo', 'Ese monto es menor al mínimo para operar. Escribe un monto mayor.');
   f.link('cotiza', 'bajo', 'monto_bajo').link('bajo', monto.entrada);
   f.link('cotiza', escalar(f, 'tasas', 'tasas_no_disponibles', { mensaje: MSG_SIN_TASAS }), 'sin_servicio');
   f.link('cotiza', escalar(f, 'grande', 'monto_grande', { mensaje: 'Por el monto, te paso con una persona del equipo para ayudarte.' }), 'requiere_persona');
-  f.buttons('oferta', '💱 *Tu cotización*\n📤 Envías: {{vars.monto_txt}} {{vars.moneda_origen}}\n➕ Comisión + impuesto: {{vars.cargos_txt}} {{vars.moneda_origen}}\n💳 *Total a transferir: {{vars.total_enviar_txt}} {{vars.moneda_origen}}*\n📥 *Recibes: {{vars.recibe_txt}} {{vars.moneda_destino}}*\n📈 Tasa: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}\n⏱ Asegurada hasta las {{vars.tasa_hasta}}', [
+  f.buttons('oferta', '💱 *Tu cotización*\n📤 Envías: {{vars.monto_txt}} {{vars.moneda_origen}}\n➕ Comisión + impuesto: {{vars.cargos_txt}} {{vars.moneda_origen}}\n💳 *Total a transferir: {{vars.total_enviar_txt}} {{vars.moneda_origen}}*\n📥 *Recibes: {{vars.recibe_txt}} {{vars.moneda_destino}}*\n📈 Tasa: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}\n⏱ Cotización vigente hasta las {{vars.tasa_hasta}}', [
     { id: 'continuar', title: 'Continuar' }, { id: 'cambiar_monto', title: 'Cambiar monto' }, { id: 'persona', title: 'Hablar con persona' },
   ]);
   f.cta('web', '¿Prefieres hacerlo desde la web?', 'Abrir formulario web', FORMULARIO_WEB);

@@ -9,7 +9,7 @@ test('cliente nuevo: de la cotización hasta que la orden queda en validación e
   const e = m.proveedor.enviados;
   await m.decir('Hola, quiero enviar 500 reales a Perú');
   assert.equal(e[0].tipo, 'botones');
-  assert.match(e[0].texto, new RegExp(`^💱 \\*Tu cotización\\*\n📤 Envías: 500\\.00 BRL\n➕ Comisión \\+ impuesto: 14\\.16 BRL\n💳 \\*Total a transferir: 514\\.16 BRL\\*\n📥 \\*Recibes: 337\\.25 PEN\\*\n📈 Tasa: 1 BRL = 0\\.6745 PEN\n⏱ Asegurada hasta las ${HORA}$`));
+  assert.match(e[0].texto, new RegExp(`^💱 \\*Tu cotización\\*\n📤 Envías: 500\\.00 BRL\n➕ Comisión \\+ impuesto: 14\\.16 BRL\n💳 \\*Total a transferir: 514\\.16 BRL\\*\n📥 \\*Recibes: 337\\.25 PEN\\*\n📈 Tasa: 1 BRL = 0\\.6745 PEN\n⏱ Cotización vigente hasta las ${HORA}$`));
   assert.deepEqual(e[0].opciones.map((o) => o.id), ['continuar', 'cambiar_monto', 'persona']);
   assert.equal(e[1].tipo, 'enlace');
   assert.equal(m.falso.llamadas.find((l) => l.nombre === 'createQuote').data.channel, 'whatsapp');
@@ -42,7 +42,7 @@ test('cliente nuevo: de la cotización hasta que la orden queda en validación e
 
   await m.tocar('confirmar', 'Confirmar');
   const instr = e.at(-2);
-  assert.match(instr.texto, new RegExp(`^Tu operación es BR-0001\\.\\nTransfiere 514\\.16 BRL a:\\nTitular: BrasPer \\(DEMO\\)\\nBanco: Nubank\\nCuenta: 0001-0000001-0\\nPix: pix@brasper\\.demo\\nUsa la cuenta de BRL, no otra moneda\\.\\nTasa asegurada hasta las ${HORA}$`));
+  assert.match(instr.texto, new RegExp(`^Tu operación es BR-0001\\.\\nTransfiere 514\\.16 BRL a:\\nTitular: BrasPer \\(DEMO\\)\\nBanco: Nubank\\nCuenta: 0001-0000001-0\\nPix: pix@brasper\\.demo\\nUsa la cuenta de BRL, no otra moneda\\.\\nTienes hasta las ${HORA} para transferir con esta tasa\\.$`));
   assert.equal(m.ultimo().texto, 'Cuando termines la transferencia, toca "Ya transferí".');
   const o = m.falso.ordenes.get('BR-0001');
   assert.deepEqual([o.channel, o.status, o.clientName, o.docType, o.docNumber, o.email, o.fundsSource], ['whatsapp', 'pending', 'Ana Paula Souza', 'CPF', '52998224725', 'ana@example.com', 'savings']);
@@ -59,7 +59,7 @@ test('cliente nuevo: de la cotización hasta que la orden queda en validación e
   assert.equal(m.falso.archivos.size, 1);
   assert.match([...m.falso.archivos.keys()][0], /^proofs\/uid001\/BR-0001\/proof-\d+\.jpg$/);
   await m.decir('ab-1234');
-  assert.equal(m.ultimo().texto, 'Una persona validará tu pago en unos 15 min. Te escribo cuando esté listo.');
+  assert.equal(m.ultimo().texto, 'Una persona validará tu pago. Te escribo cuando esté listo.');
   assert.equal(m.falso.ordenes.get('BR-0001').status, 'validating');
   assert.equal(m.falso.ordenes.get('BR-0001').operationNo, 'AB-1234');
   assert.equal(m.almacen.cargarEjecucion(T), null);
@@ -155,7 +155,7 @@ test('un monto por encima del límite pasa a una persona con un ticket en el bac
 
 test('un monto menor al mínimo explica el mínimo y vuelve a pedir el monto', () => conMundo(async (m) => {
   await m.decir('Hola, quiero enviar 10 reales a Perú');
-  assert.equal(m.proveedor.enviados.at(-2).texto, 'Ese monto es menor al mínimo (unos 10 USD equivalentes). Escribe un monto mayor.');
+  assert.equal(m.proveedor.enviados.at(-2).texto, 'Ese monto es menor al mínimo para operar. Escribe un monto mayor.');
   assert.equal(m.ultimo().texto, '¿Cuánto quieres enviar? Escribe solo el monto.');
   await m.decir('500');
   assert.match(m.proveedor.enviados.at(-2).texto, /Total a transferir: 514\.16 BRL/); // la oferta va antes del enlace web
@@ -216,7 +216,7 @@ test('E3: el número de operación duplicado se avisa y se puede corregir', () =
   assert.equal(m.ultimo().texto, 'Ahora escribe el número de operación bancaria.'); // vuelve a pedirlo
   assert.equal(m.falso.ordenes.get('BR-0002').status, 'pending');
   await m.decir('ZZ-9999');
-  assert.equal(m.ultimo().texto, 'Una persona validará tu pago en unos 15 min. Te escribo cuando esté listo.');
+  assert.equal(m.ultimo().texto, 'Una persona validará tu pago. Te escribo cuando esté listo.');
   assert.equal(m.falso.ordenes.get('BR-0002').status, 'validating');
 }));
 
@@ -351,7 +351,7 @@ test('E3: una foto enviada antes de tocar "Ya transferí" no sube nada ni avanza
 test('sentido inverso PEN → BRL: bancos peruanos para enviar y brasileños para recibir, cuenta de pago en soles y orden en validación', () => conMundo(async (m) => {
   const e = m.proveedor.enviados;
   await m.decir('Quiero enviar 500 soles a Brasil');
-  assert.match(e[0].texto, /^💱 \*Tu cotización\*\n📤 Envías: 500\.00 PEN\n➕ Comisión \+ impuesto: [\d.]+ PEN\n💳 \*Total a transferir: [\d.]+ PEN\*\n📥 \*Recibes: [\d.]+ BRL\*\n📈 Tasa: 1 PEN = [\d.]+ BRL\n⏱ Asegurada hasta las /);
+  assert.match(e[0].texto, /^💱 \*Tu cotización\*\n📤 Envías: 500\.00 PEN\n➕ Comisión \+ impuesto: [\d.]+ PEN\n💳 \*Total a transferir: [\d.]+ PEN\*\n📥 \*Recibes: [\d.]+ BRL\*\n📈 Tasa: 1 PEN = [\d.]+ BRL\n⏱ Cotización vigente hasta las /);
   const cot = m.falso.llamadas.find((l) => l.nombre === 'createQuote').data;
   assert.deepEqual([cot.sendCurrency, cot.receiveCurrency, cot.sendAmount, cot.channel], ['PEN', 'BRL', 500, 'whatsapp']);
   await m.tocar('continuar', 'Continuar');
@@ -411,3 +411,10 @@ test('en la lista de monedas, dos textos que no dicen la remesa siguen pasando a
   await m.decir('buenas');
   assert.match(m.ultimo().texto, /^Te paso con una persona del equipo/);
 }, { extraer: async () => ({}) }));
+
+test('E3 no inventa un horario de atención: las instrucciones de pago van directo a "Ya transferí", a cualquier hora', () => conMundo(async (m) => {
+  await hastaInstrucciones(m); // 1:00 a. m. en Lima: el simulador diría "fuera de horario"
+  const textos = m.proveedor.enviados.map((e) => e.texto || '');
+  assert.ok(!textos.some((t) => /horario|se verificará/i.test(t)), 'ningún mensaje habla de un horario que el backend no dio');
+  assert.equal(m.ultimo().texto, 'Cuando termines la transferencia, toca "Ya transferí".');
+}, { simular: '2026-10-14T06:00:00Z' }));

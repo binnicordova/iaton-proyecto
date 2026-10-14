@@ -9,16 +9,13 @@ function e3() {
   f.link('start', 'init');
   f.api('info', 'orden_info');
   f.link('init', 'info');
-  f.text('instr', 'Tu operación es {{vars.operacion_id}}.\nTransfiere {{vars.total_enviar_txt}} {{vars.moneda_origen}} a:\nTitular: {{vars.pago_titular}}\nBanco: {{vars.pago_banco}}\nCuenta: {{vars.pago_cuenta}}{{vars.pago_pix_linea}}\nUsa la cuenta de {{vars.moneda_origen}}, no otra moneda.\nTasa asegurada hasta las {{vars.tasa_hasta}}');
+  f.text('instr', 'Tu operación es {{vars.operacion_id}}.\nTransfiere {{vars.total_enviar_txt}} {{vars.moneda_origen}} a:\nTitular: {{vars.pago_titular}}\nBanco: {{vars.pago_banco}}\nCuenta: {{vars.pago_cuenta}}{{vars.pago_pix_linea}}\nUsa la cuenta de {{vars.moneda_origen}}, no otra moneda.\nTienes hasta las {{vars.tasa_hasta}} para transferir con esta tasa.');
   f.link('info', 'instr');
-  f.api('horario', 'check_hours', { edges: ['abierto', 'cerrado'] });
-  f.link('instr', 'horario');
-  f.text('fuera', 'Fuera de horario: tu operación se verificará {{vars.proxima_verificacion}}');
   const ac = elegir(f, 'ac', {
     tipo: 'buttons', body: 'Cuando termines la transferencia, toca "Ya transferí".',
     opciones: [{ id: 'ya_transferi', title: 'Ya transferí' }, { id: 'cancelar', title: 'Cancelar operación' }], variable: 'accion_e3', motivo: 'accion_e3',
   });
-  f.link('horario', 'fuera', 'cerrado').link('horario', ac.entrada, 'abierto').link('fuera', ac.entrada);
+  f.link('instr', ac.entrada); // sin horario propio: el backend no publica uno y el bot no lo inventa
 
   // Cancelar con confirmación.
   const cc = elegir(f, 'cc', {
@@ -51,7 +48,7 @@ function e3() {
   f.link('foto', nop.entrada, 'subida');
   f.api('envia', 'proof_submit', { edges: ['ok', 'duplicado', 'sin_subida', 'ya_recibido', 'invalido'] });
   f.link(nop.salida, 'envia', 'valido');
-  f.text('cierre', 'Una persona validará tu pago en unos 15 min. Te escribo cuando esté listo.');
+  f.text('cierre', 'Una persona validará tu pago. Te escribo cuando esté listo.');
   f.text('dup', 'Ese número de operación ya está en otra operación. Revísalo y envíalo de nuevo.');
   f.text('nofoto', 'No encontré tu foto. Envíamela de nuevo.');
   f.text('ya', 'Ya recibimos tu comprobante. Una persona validará tu pago.');
