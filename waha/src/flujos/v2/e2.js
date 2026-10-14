@@ -18,7 +18,7 @@ function bloqueCuenta(f, p, { lado, monedaVar, cuerpoLista, cuerpoBanco }) {
   const bancoTxt = pregunta(f, n('bt'), { prompt: 'Escribe el nombre de tu banco.', guardar: `${lado}_banco_raw`, validar: `banco_${lado}`, error: 'No entendí el nombre del banco. Escríbelo de nuevo.', motivo: `banco_${lado}_invalido` });
   f.api(n('bset'), `banco_set:${lado}`);
   const num = pregunta(f, n('nm'), {
-    prompt: `Escribe el número de tu cuenta en {{vars.${lado}_banco}}.`, guardar: `${lado}_cuenta_raw`, validar: `cuenta_${lado}`,
+    prompt: lado === 'origen' ? 'Escribe el número de tu cuenta en {{vars.origen_banco}}.' : 'Escribe el número de la cuenta de tu destinatario en {{vars.destino_banco}}.', guardar: `${lado}_cuenta_raw`, validar: `cuenta_${lado}`,
     error: 'No pude leer ese número de cuenta 🤔 Escríbelo solo con dígitos y guiones.', motivo: `cuenta_${lado}_invalida`,
   });
   f.link(n('opc'), banco.entrada, 'sin_cuentas').link(n('route'), banco.entrada, 'otra');
