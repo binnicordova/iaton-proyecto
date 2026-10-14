@@ -7,7 +7,7 @@ const { enmascarar } = require('../util');
 
 const MAX_PASOS = 150;
 const MSG_PERSONA = 'Te paso con una persona del equipo para ayudarte.';
-const MSG_TEMPORAL = 'Tuvimos un problema temporal. Intenta de nuevo en un momento.';
+const MSG_TEMPORAL = 'Tuvimos un problema temporal 😕 Escríbeme de nuevo en un momento y seguimos donde quedamos.';
 
 class ErrorMotor extends Error {}
 

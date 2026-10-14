@@ -124,7 +124,7 @@ test('order_create: crea la orden, guarda cómo encontrarla y borra los datos pe
   const v = await conOrden(m);
   assert.equal(v.operacion_id, 'BR-0001');
   assert.deepEqual([v.pago_titular, v.pago_banco, v.pago_cuenta], ['BrasPer (DEMO)', 'Nubank', '0001-0000001-0']);
-  assert.equal(v.pago_pix_linea, '\nPix: pix@brasper.demo');
+  assert.equal(v.pago_pix_linea, '\n🔑 Pix: pix@brasper.demo');
   assert.equal(v.total_enviar_txt, '514.16');
   assert.match(v.tasa_hasta, /^\d{1,2}:\d\d [ap]\. m\.$/);
   assert.equal(v.destino_ult4, '7890');
@@ -276,7 +276,7 @@ test('cancel_order cancela la orden pendiente y tolera que ya no lo esté', () =
 test('handoff_to_human: abre el ticket con un resumen sin datos personales y recuerda que está atendido', () => conMundo(async (m) => {
   const v = await conOrden(m);
   const r = await m.llamar('handoff_to_human:cliente_pide_persona', { ...v, monto_txt: '500.00' });
-  assert.equal(r.vars.cola_texto, ' Estás en la posición 1 (espera aproximada: 3 min).');
+  assert.equal(r.vars.cola_texto, '\nEstás en la posición 1 de la cola (espera aproximada: 3 min).');
   const ticket = [...m.falso.tickets.values()][0];
   assert.match(ticket.summary, /cliente_pide_persona/);
   assert.match(ticket.summary, /BR-0001/);

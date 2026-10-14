@@ -1,18 +1,21 @@
 // Piezas comunes de los grafos v2 (mismas ideas que kapso/build/workflows.js, con las acciones del backend real).
 const { PHONE_NUMBER_ID } = require('../../../../kapso/build/flow');
 
-const MSG_PERSONA = 'Te paso con una persona del equipo para ayudarte.';
-const MSG_SIN_TASAS = 'Ahora no puedo cotizar con seguridad. Te paso con una persona del equipo para ayudarte.';
+const MSG_PERSONA = 'Te paso con una persona del equipo para ayudarte 🙋';
+const MSG_SIN_TASAS = 'Ahora no puedo cotizar con seguridad. Te paso con una persona del equipo para ayudarte 🙋';
 const FORMULARIO_WEB = 'https://brasper.com/es';
 const MONEDAS = ['BRL', 'PEN', 'USD'];
-const MONEDAS_BTN = MONEDAS.map((m) => ({ id: m, title: m }));
+const NOMBRE_MONEDA = { BRL: '🇧🇷 Reales (BRL)', PEN: '🇵🇪 Soles (PEN)', USD: '🇺🇸 Dólares (USD)' };
+const MONEDAS_BTN = MONEDAS.map((m) => ({ id: m, title: NOMBRE_MONEDA[m] }));
 // Bancos de demostración por moneda (máximo 10 filas por lista). "Otro" pide escribir el nombre.
 const BANCOS_POR_MONEDA = {
   BRL: ['Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Caixa', 'Otro'],
   PEN: ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Otro'],
   USD: ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Otro'],
 };
-const TIPOS_DOC = ['DNI', 'CE', 'RUC', 'CPF'].map((d) => ({ id: d, title: d }));
+const TIPOS_DOC = [{ id: 'DNI', title: 'DNI (Perú)' }, { id: 'CE', title: 'CE (extranjería)' }, { id: 'RUC', title: 'RUC (empresa)' }, { id: 'CPF', title: 'CPF (Brasil)' }];
+// Cuántos dígitos espera el backend por tipo de documento (se dice al pedir el número).
+const LARGO_DOC = { DNI: '8 dígitos', CE: '9 a 12 caracteres', RUC: '11 dígitos', CPF: '11 dígitos' };
 // Los ids son los valores que acepta el backend (fundsSource).
 const FONDOS = [
   { id: 'savings', title: 'Ahorros' }, { id: 'salary', title: 'Sueldo' }, { id: 'business', title: 'Negocio propio' },
@@ -85,6 +88,6 @@ function listaDinamica(f, id, { body, boton, filasVar }) {
 }
 
 module.exports = {
-  MSG_PERSONA, MSG_SIN_TASAS, FORMULARIO_WEB, MONEDAS, MONEDAS_BTN, BANCOS_POR_MONEDA, TIPOS_DOC, FONDOS, ids,
+  MSG_PERSONA, MSG_SIN_TASAS, FORMULARIO_WEB, MONEDAS, MONEDAS_BTN, BANCOS_POR_MONEDA, TIPOS_DOC, LARGO_DOC, FONDOS, ids,
   escalar, pregunta, elegir, elegirPorMoneda, listaDinamica,
 };

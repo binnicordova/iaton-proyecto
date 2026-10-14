@@ -27,7 +27,7 @@ function crearVigilante({ almacen, firestore, funciones, motor, proveedor, ahora
       if (e instanceof ErrorBackend && e.codigo === 'receipt-not-ready') return false; // todavía no hay factura aceptada
       throw e;
     }
-    await proveedor.enviarDocumento(s.chatId, { nombre: recibo.filename, mimetype: recibo.contentType, base64: recibo.base64, caption: `Tu comprobante de la operación ${s.ordenId}` });
+    await proveedor.enviarDocumento(s.chatId, { nombre: recibo.filename, mimetype: recibo.contentType, base64: recibo.base64, caption: `📄 Tu comprobante de la operación ${s.ordenId}. ¡Gracias por confiar en BrasPer!` });
     return true;
   }
 
