@@ -24,7 +24,7 @@ async function main() {
   const entorno = { ...cargarEnvDeArchivos(path.join(__dirname, '..')), ...process.env };
   const { servidor, vigilante } = ensamblar({
     config, entorno, almacen, proveedor,
-    extraer: crearExtractor({ apiKey: config.anthropicApiKey, timeoutMs: config.iaTimeoutMs }),
+    extraer: crearExtractor({ apiKey: config.anthropicApiKey, timeoutMs: config.iaTimeoutMs, registrar: (e) => almacen.registrar(e) }),
     descargarMedia: crearDescargaMedia({ wahaBaseUrl: config.wahaBaseUrl, apiKey: config.wahaApiKey, session: config.wahaSession }),
   });
   servidor.listen(config.puerto, config.host, () => {
