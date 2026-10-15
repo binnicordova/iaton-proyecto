@@ -4,7 +4,7 @@ const { MSG_SIN_TASAS, MONEDAS, BANCOS_POR_MONEDA, TIPOS_DOC, LARGO_DOC, FONDOS,
 
 // Bloque de cuenta (origen o destino): lista de las cuentas guardadas de esa moneda o, si no hay o elige "Otra cuenta",
 // banco (lista por moneda; "Otro" = escribir el nombre) y número de cuenta. Termina en `${p}_ok`.
-function bloqueCuenta(f, p, { lado, monedaVar, cuerpoLista, cuerpoBanco }) {
+function bloqueCuenta(f, p, { lado, monedaVar, cuerpoLista, cuerpoBanco, numeroOpcional = false }) {
   const n = (s) => `${p}_${s}`;
   f.api(n('opc'), `cuentas_opciones:${lado}`, { edges: ['con_cuentas', 'sin_cuentas'] });
   listaDinamica(f, n('lista'), { body: cuerpoLista, boton: 'Elegir cuenta', filasVar: `opciones_${lado}` });
@@ -17,16 +17,23 @@ function bloqueCuenta(f, p, { lado, monedaVar, cuerpoLista, cuerpoBanco }) {
   const banco = elegirPorMoneda(f, n('bn'), { monedaVar, body: cuerpoBanco, boton: 'Elegir banco', listas: BANCOS_POR_MONEDA, variable: `${lado}_banco_sel`, motivo: `banco_${lado}` });
   const bancoTxt = pregunta(f, n('bt'), { prompt: 'Escribe el nombre de tu banco.', guardar: `${lado}_banco_raw`, validar: `banco_${lado}`, error: 'No entendí el nombre del banco. Escríbelo de nuevo.', motivo: `banco_${lado}_invalido` });
   f.api(n('bset'), `banco_set:${lado}`);
-  const num = pregunta(f, n('nm'), {
-    prompt: lado === 'origen' ? 'Escribe el número de tu cuenta en {{vars.origen_banco}}.' : 'Escribe el número de la cuenta de tu destinatario en {{vars.destino_banco}}.', guardar: `${lado}_cuenta_raw`, validar: `cuenta_${lado}`,
+  // Destino: el número de cuenta es obligatorio. Origen: opcional en el backend, así que solo se pregunta el banco.
+  const num = numeroOpcional ? null : pregunta(f, n('nm'), {
+    prompt: 'Escribe el número de la cuenta de tu destinatario en {{vars.destino_banco}}.', guardar: `${lado}_cuenta_raw`, validar: `cuenta_${lado}`,
     error: 'No pude leer ese número de cuenta 🤔 Escríbelo solo con dígitos y guiones.', motivo: `cuenta_${lado}_invalida`,
   });
+  if (numeroOpcional) f.api(n('sn'), `sin_numero:${lado}`);
   f.link(n('opc'), banco.entrada, 'sin_cuentas').link(n('route'), banco.entrada, 'otra');
   f.linkAll(banco.ruta, n('bset'), banco.ids.filter((b) => b !== 'Otro'));
   f.link(banco.ruta, bancoTxt.entrada, 'Otro');
-  f.link(bancoTxt.salida, num.entrada, 'valido').link(n('bset'), num.entrada);
+  if (numeroOpcional) {
+    f.link(bancoTxt.salida, n('sn'), 'valido').link(n('bset'), n('sn'));
+  } else {
+    f.link(bancoTxt.salida, num.entrada, 'valido').link(n('bset'), num.entrada);
+  }
   f.setvar(n('ok'), `cuenta_${lado}_lista`, 'si');
-  f.link(n('route'), n('ok'), 'elegida').link(num.salida, n('ok'), 'valido');
+  f.link(n('route'), n('ok'), 'elegida');
+  if (numeroOpcional) f.link(n('sn'), n('ok')); else f.link(num.salida, n('ok'), 'valido');
   return { entrada: n('opc'), salida: n('ok') };
 }
 
@@ -57,7 +64,7 @@ function e2() {
   // Origen de fondos y cuentas.
   const fo = elegir(f, 'fo', { tipo: 'list', body: '¿Cuál es el origen de los fondos que vas a enviar?', opciones: FONDOS, variable: 'fondos', motivo: 'origen_fondos' });
   f.link(cf.ruta, fo.entrada, 'si_datos').link(co.salida, fo.entrada, 'valido');
-  const origen = bloqueCuenta(f, 'cu_o', { lado: 'origen', monedaVar: 'moneda_origen', cuerpoLista: '¿Desde qué cuenta vas a transferir?', cuerpoBanco: '¿Desde qué banco vas a transferir?' });
+  const origen = bloqueCuenta(f, 'cu_o', { lado: 'origen', monedaVar: 'moneda_origen', cuerpoLista: '¿Desde qué cuenta vas a transferir?', cuerpoBanco: '¿Desde qué banco vas a transferir?', numeroOpcional: true });
   const destino = bloqueCuenta(f, 'cu_d', { lado: 'destino', monedaVar: 'moneda_destino', cuerpoLista: '¿A qué cuenta recibirá tu destinatario?', cuerpoBanco: '¿En qué banco recibirá tu destinatario?' });
   f.linkAll(fo.ruta, origen.entrada, ids(FONDOS));
   f.link(origen.salida, destino.entrada);
@@ -65,7 +72,7 @@ function e2() {
   // Resumen y confirmación antes de crear la orden.
   const rs = elegir(f, 'rs', {
     tipo: 'buttons',
-    body: '📋 *Resumen de tu operación*\n📤 Envías: {{vars.total_enviar_txt}} {{vars.moneda_origen}} desde {{vars.origen_banco}} ••{{vars.origen_ult4}}\n📥 Recibe: {{vars.recibe_txt}} {{vars.moneda_destino}} en {{vars.destino_banco}} ••{{vars.destino_ult4}}\n📈 Tasa: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}\n\n¿Todo correcto?',
+    body: '📋 *Resumen de tu operación*\n📤 Envías: {{vars.total_enviar_txt}} {{vars.moneda_origen}} desde {{vars.origen_banco}}{{vars.origen_ult4_txt}}\n📥 Recibe: {{vars.recibe_txt}} {{vars.moneda_destino}} en {{vars.destino_banco}} ••{{vars.destino_ult4}}\n📈 Tasa: 1 {{vars.moneda_origen}} = {{vars.tasa_txt}} {{vars.moneda_destino}}\n\n¿Todo correcto?',
     opciones: [{ id: 'confirmar', title: 'Confirmar' }, { id: 'cambiar', title: 'Cambiar datos' }, { id: 'cancelar', title: 'Cancelar' }], variable: 'confirma_e2', motivo: 'confirma_e2',
   });
   f.link(destino.salida, rs.entrada);

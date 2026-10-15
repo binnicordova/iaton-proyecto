@@ -148,3 +148,17 @@ test('accounts:delete borra al usuario: su token deja de servir y su refresco da
   const refresco = await fetch(`${f.config.tokenUrl}/v1/token?key=${f.apiKey}`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `grant_type=refresh_token&refresh_token=${u.refreshToken}` });
   assert.equal((await refresco.json()).error.message, 'TOKEN_EXPIRED');
 }));
+
+test('createOrder: sourceAccount es opcional, pero si viene debe ser válida; destinationAccount sigue siendo obligatoria', () => conFalso(async (f) => {
+  const u = await alta(f);
+  const cotizar = async () => (await fn(f, 'createQuote', u.idToken, { sendCurrency: 'BRL', receiveCurrency: 'PEN', sendAmount: 500 })).json.result;
+  const { sourceAccount, ...sinOrigen } = DATOS;
+  const ok = await fn(f, 'createOrder', u.idToken, { quoteId: (await cotizar()).id, ...sinOrigen });
+  assert.equal(ok.estado, 200);
+  assert.equal(ok.json.result.sourceBank, 'Nubank');
+  const corta = await fn(f, 'createOrder', u.idToken, { quoteId: (await cotizar()).id, ...DATOS, sourceAccount: 'ab' });
+  assert.deepEqual([corta.estado, corta.json.error.details.map((d) => d.path)], [400, ['sourceAccount']]);
+  const { destinationAccount, ...sinDestino } = DATOS;
+  const falta = await fn(f, 'createOrder', u.idToken, { quoteId: (await cotizar()).id, ...sinDestino });
+  assert.deepEqual(falta.json.error.details.map((d) => d.path), ['destinationAccount']);
+}));
