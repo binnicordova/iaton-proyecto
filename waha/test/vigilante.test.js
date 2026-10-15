@@ -65,13 +65,13 @@ test('si la orden salta de aprobada a facturada entre dos revisiones, igual se a
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 1);
 }));
 
-test('un pago rechazado avisa el motivo, abre un ticket con una persona y cierra el seguimiento', () => conMundo(async (m) => {
+test('un pago rechazado avisa el motivo, da el enlace al WhatsApp humano con la operación y cierra el seguimiento', () => conMundo(async (m) => {
   await validando(m);
   m.falso.rechazar('BR-0001', 'El monto transferido no coincide');
   await vigilante(m).tick();
   assert.ok(textos(m).includes('Lo sentimos 😕 No pudimos validar tu pago de la operación BR-0001.\nMotivo: El monto transferido no coincide'));
-  assert.match(m.ultimo().texto, /^Una persona del equipo te contactará\.\nEstás en la posición 1/);
-  assert.equal(m.falso.tickets.size, 1);
+  assert.equal(m.ultimo().texto, `Una persona del equipo puede ayudarte con esto.\nEscríbenos aquí y te atiende una persona por WhatsApp:\nhttps://wa.me/51966991933?text=${encodeURIComponent('Hola, no se validó mi pago de la operación BR-0001 y necesito ayuda.')}`);
+  assert.equal(m.falso.tickets.size, 0);
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 1);
 }));
 
@@ -158,20 +158,4 @@ test('un 503 de Firestore al leer la orden no cierra el seguimiento: se reintent
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0);
   await v.tick();
   assert.equal(m.almacen.seguimiento('BR-0001').estadoAvisado, 'approved');
-}));
-
-test('si el ticket de un pago rechazado no se puede abrir por la red, no se manda el texto de rechazo: se reintenta entero, una sola vez', () => conMundo(async (m) => {
-  await validando(m);
-  m.falso.rechazar('BR-0001', 'El monto transferido no coincide');
-  const v = vigilante(m);
-  m.falso.fallar('/fn/requesthuman', { estado: 502, veces: 3 });
-  await v.tick();
-  await v.tick();
-  assert.ok(!textos(m).some((t) => t.startsWith('Lo sentimos 😕 No pudimos validar')), 'el rechazo no se avisa a medias');
-  assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0);
-  await v.tick(); // la red vuelve
-  await v.tick();
-  assert.equal(textos(m).filter((t) => t.startsWith('Lo sentimos 😕 No pudimos validar')).length, 1);
-  assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 1);
-  assert.equal(m.falso.tickets.size, 1);
 }));

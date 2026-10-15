@@ -11,13 +11,13 @@ const CHAT = `${T}@c.us`;
 const COTIZACION = { monto: 500, moneda_origen: 'BRL', moneda_destino: 'PEN' };
 const DATOS = { nombre: 'Ana Paula Souza', doc_tipo: 'CPF', doc_num: '52998224725', correo: 'ana@example.com', fondos: 'savings', origen_banco: 'Nubank', origen_cuenta: '0001-12345678-9', destino_banco: 'BCP', destino_cuenta: '191-1234567890' };
 
-async function mundo({ timeoutMs, ahora } = {}) {
+async function mundo({ timeoutMs, ahora, humano } = {}) {
   const falso = await crearFirebaseFalso();
   const almacen = crearAlmacen(abrirDb(':memory:'));
   const registrados = [];
   let descargar = async () => null;
   const media = { usar: (fn) => { descargar = fn; } };
-  const backend = crearBackend({ modo: 'real', almacen, configReal: falso.config, descargarMedia: (p) => descargar(p), timeoutMs, ahora, registrar: (e) => registrados.push(e), dormir: async () => {} });
+  const backend = crearBackend({ modo: 'real', almacen, configReal: falso.config, descargarMedia: (p) => descargar(p), timeoutMs, ahora, humano, registrar: (e) => registrados.push(e), dormir: async () => {} });
   const llamar = (accion, vars = {}, extra = {}) => backend.llamarFuncion({ vars: { api_action: accion, ...vars }, phone: T, edges: extra.edges || [], wa: extra.wa || { messages: [] }, chatId: CHAT });
   return { falso, almacen, backend, llamar, registrados, media, cerrar: () => falso.cerrar() };
 }
@@ -278,17 +278,29 @@ test('cancel_order cancela la orden pendiente y tolera que ya no lo esté', () =
   assert.deepEqual((await m.llamar('cancel_order', v)).vars, { estado: 'cancelled' }); // ya cancelada: no es un error para el cliente
 }));
 
-test('handoff_to_human: abre el ticket con un resumen sin datos personales y recuerda que está atendido', () => conMundo(async (m) => {
+const ENLACE = (texto, numero = '51966991933') => `\nEscríbenos aquí y te atiende una persona por WhatsApp:\nhttps://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+
+test('handoff_to_human: no abre ticket; da el enlace al WhatsApp humano con un mensaje listo y sin datos personales', () => conMundo(async (m) => {
   const v = await conOrden(m);
   const r = await m.llamar('handoff_to_human:cliente_pide_persona', { ...v, monto_txt: '500.00' });
-  assert.equal(r.vars.cola_texto, '\nEstás en la posición 1 de la cola (espera aproximada: 3 min).');
-  const ticket = [...m.falso.tickets.values()][0];
-  assert.match(ticket.summary, /cliente_pide_persona/);
-  assert.match(ticket.summary, /BR-0001/);
-  assert.ok(!ticket.summary.includes('52998224725') && !ticket.summary.includes('ana@example.com'));
-  assert.equal(ticket.channel, 'whatsapp');
-  assert.ok(await m.almacen.kvEnv().get(`handoff:${T}`, 'json'));
+  assert.equal(r.vars.cola_texto, ENLACE('Hola, necesito ayuda con mi operación BR-0001.'));
+  assert.equal(m.falso.tickets.size, 0);
+  assert.ok(!m.falso.llamadas.some((l) => ['requestHuman', 'getQueueInfo'].includes(l.nombre)), 'ya no se usa la cola del backend');
+  assert.equal(await m.almacen.kvEnv().get(`handoff:${T}`, 'json'), null, 'no deja un marcador que bloquee al cliente');
+  assert.ok(!r.vars.cola_texto.includes('52998224725') && !r.vars.cola_texto.includes('ana@example.com'));
+  // sin orden: se resume la cotización; con rechazo: el pago de esa operación; sin nada: un saludo
+  const c = await m.llamar('handoff_to_human:monto_grande', { monto_txt: '20000.00', moneda_origen: 'BRL', moneda_destino: 'PEN' });
+  assert.equal(c.vars.cola_texto, ENLACE('Hola, quiero enviar 20000.00 BRL a PEN y necesito ayuda.'));
+  const rj = await m.llamar('handoff_to_human:pago_no_validado', { operacion_id: 'BR-0007' });
+  assert.equal(rj.vars.cola_texto, ENLACE('Hola, no se validó mi pago de la operación BR-0007 y necesito ayuda.'));
+  const nada = await m.llamar('handoff_to_human:x', {});
+  assert.equal(nada.vars.cola_texto, ENLACE('Hola, necesito ayuda con BrasPer.'));
 }));
+
+test('handoff_to_human: el número del WhatsApp humano es configurable', () => conMundo(async (m) => {
+  const r = await m.llamar('handoff_to_human:x', {});
+  assert.match(r.vars.cola_texto, /^\nEscríbenos aquí y te atiende una persona por WhatsApp:\nhttps:\/\/wa\.me\/51999000111\?text=/);
+}, { humano: '51999000111' }));
 
 test('get_status: sin orden → e1; pendiente → e3 con sus datos; en validación → estado', () => conMundo(async (m) => {
   const E = ['e1', 'e3', 'estado', 'escalada'];
@@ -308,19 +320,16 @@ test('get_status: sin orden → e1; pendiente → e3 con sus datos; en validaci�
   assert.match((await m.llamar('get_status', {}, { edges: E })).vars.estado_texto, /^verificada/);
 }));
 
-test('get_status: una orden con seguimiento cerrado o cancelada deja empezar de nuevo; un ticket abierto escala', () => conMundo(async (m) => {
-  const E = ['e1', 'e3', 'estado', 'escalada'];
+test('get_status: una orden con seguimiento cerrado o cancelada deja empezar de nuevo, y un marcador viejo de ticket ya no bloquea', () => conMundo(async (m) => {
+  const E = ['e1', 'e3', 'estado'];
   const v = await conOrden(m);
   m.almacen.abrirSeguimiento({ ordenId: 'BR-0001', telefono: T, chatId: CHAT, creado: '2026-10-13T10:00:00.000Z' });
   m.almacen.actualizarSeguimiento('BR-0001', { cerrado: 1 });
   assert.equal((await m.llamar('get_status', {}, { edges: E })).next_edge, 'e1');
   await m.llamar('cancel_order', v);
   assert.equal((await m.llamar('get_status', {}, { edges: E })).next_edge, 'e1');
-  await m.llamar('handoff_to_human:x', {});
-  assert.equal((await m.llamar('get_status', {}, { edges: E })).next_edge, 'escalada');
-  [...m.falso.tickets.values()][0].status = 'closed';
+  await m.almacen.kvEnv().put(`handoff:${T}`, JSON.stringify({ handoffId: 'H001', motivo: 'viejo' })); // de cuando el bot abría tickets
   assert.equal((await m.llamar('get_status', {}, { edges: E })).next_edge, 'e1');
-  assert.equal(await m.almacen.kvEnv().get(`handoff:${T}`, 'json'), null); // el marcador se limpió
 }));
 
 test('route_evento enruta por el evento del vigilante', () => conMundo(async (m) => {

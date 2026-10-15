@@ -143,14 +143,11 @@ test('si la cotización vence mientras el cliente completa los datos, se cotiza 
   assert.match(m.ultimo().texto, /^✅ \*Operación BR-0001 registrada\*/);
 }));
 
-test('un monto por encima del límite pasa a una persona con un ticket en el backend', () => conMundo(async (m) => {
+test('un monto por encima del límite pasa a una persona: enlace al WhatsApp humano con la cotización, sin ticket', () => conMundo(async (m) => {
   await m.decir('Hola, quiero enviar 20000 reales a Perú');
   assert.equal(m.falso.ordenes.size, 0);
-  assert.equal(m.falso.tickets.size, 1);
-  const t = [...m.falso.tickets.values()][0];
-  assert.equal(t.channel, 'whatsapp');
-  assert.match(t.summary, /monto_grande/);
-  assert.equal(m.ultimo().texto, 'Para montos grandes te atiende una persona del equipo, así cuidamos tu operación 🙌\nEstás en la posición 1 de la cola (espera aproximada: 3 min).');
+  assert.equal(m.falso.tickets.size, 0);
+  assert.equal(m.ultimo().texto, `Para montos grandes te atiende una persona del equipo, así cuidamos tu operación 🙌\nEscríbenos aquí y te atiende una persona por WhatsApp:\nhttps://wa.me/51966991933?text=${encodeURIComponent('Hola, quiero enviar 20000 BRL a PEN y necesito ayuda.')}`);
   assert.equal(m.almacen.cargarEjecucion(T), null);
 }, { extraer: async () => ({ monto: 20000, moneda_origen: 'BRL', moneda_destino: 'PEN' }) }));
 
@@ -185,8 +182,8 @@ test('las respuestas inválidas en un paso de texto repiten la pregunta y el seg
   await m.decir('Ana');
   assert.equal(m.ultimo().texto, 'Escríbelo con nombre y apellido, por ejemplo Ana Souza.');
   await m.decir('');
-  assert.match(m.ultimo().texto, /^Te paso con una persona del equipo para ayudarte 🙋/);
-  assert.equal(m.falso.tickets.size, 1);
+  assert.match(m.ultimo().texto, /^Te paso con una persona del equipo para ayudarte 🙋\nEscríbenos aquí y te atiende una persona por WhatsApp:\nhttps:\/\/wa\.me\/51966991933\?text=/);
+  assert.equal(m.falso.tickets.size, 0);
 }));
 
 test('documento inválido para el tipo elegido: repite y no avanza', () => conMundo(async (m) => {
@@ -312,16 +309,15 @@ test('W0: con una orden en validación, un mensaje que pide una remesa nueva abr
   assert.equal(m.almacen.seguimiento('BR-0001').cerrado, 0);
 }, { extraer: async (t) => (/enviar/.test(t) ? { monto: 500, moneda_origen: 'BRL', moneda_destino: 'PEN' } : {}) }));
 
-test('"Hablar con persona" abre un ticket y los mensajes siguientes reciben el aviso de que ya los atienden', () => conMundo(async (m) => {
+test('"Hablar con persona" da el enlace al WhatsApp humano y no deja al cliente atrapado: el siguiente mensaje sigue normal', () => conMundo(async (m) => {
   await m.decir('Hola, quiero enviar 500 reales a Perú');
-  await m.tocar('persona', 'Hablar con persona');
-  assert.match(m.ultimo().texto, /^Te paso con una persona del equipo para ayudarte 🙋\nEstás en la posición 1/);
-  assert.equal(m.falso.tickets.size, 1);
-  await m.decir('¿hay alguien?');
-  assert.equal(m.ultimo().texto, 'Una persona del equipo ya está atendiendo tu caso.');
-  [...m.falso.tickets.values()][0].status = 'closed';
-  await m.decir('hola');
-  assert.equal(m.proveedor.enviados.at(-2).tipo, 'botones'); // el ticket se cerró: empieza de nuevo
+  await m.tocar('persona', 'Hablar con alguien');
+  assert.match(m.ultimo().texto, /^Te paso con una persona del equipo para ayudarte 🙋\nEscríbenos aquí y te atiende una persona por WhatsApp:\nhttps:\/\/wa\.me\/51966991933\?text=/);
+  assert.equal(m.falso.tickets.size, 0);
+  assert.equal(m.almacen.cargarEjecucion(T), null);
+  await m.decir('Hola, quiero enviar 500 reales a Perú');
+  assert.equal(m.proveedor.enviados.filter((e) => /Esta es tu cotización/.test(e.texto || '')).length, 2, 'puede cotizar de nuevo');
+  assert.ok(!m.proveedor.enviados.some((e) => /ya está atendiendo/.test(e.texto || '')));
 }));
 
 test('reinicio del servidor a mitad de los datos: retoma desde SQLite sin pedir nada otra vez', () => conMundo(async (m) => {

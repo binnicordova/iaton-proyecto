@@ -23,7 +23,7 @@ const FONDOS = [
 ];
 const ids = (opciones) => opciones.map((o) => o.id);
 
-// Handoff a persona: abre el ticket (requestHuman), avisa con la posición en la cola y detiene la ejecución.
+// Handoff a persona: da el enlace al WhatsApp humano de BrasPer (con un mensaje ya escrito) y detiene la ejecución.
 function escalar(f, nombre, motivo, { mensaje = MSG_PERSONA, cta } = {}) {
   f.api(`${nombre}_reg`, `handoff_to_human:${motivo}`);
   f.text(`${nombre}_msg`, `${mensaje}{{vars.cola_texto}}`);
