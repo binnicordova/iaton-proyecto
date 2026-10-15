@@ -30,13 +30,12 @@ test('cliente nuevo: de la cotización hasta que la orden queda en validación e
   assert.equal(m.ultimo().texto, '¿Desde qué banco vas a transferir?');
   assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Caixa', 'Otro']);
   await m.tocar('Nubank');
-  assert.equal(m.ultimo().texto, 'Escribe el número de tu cuenta en Nubank.');
-  await m.decir('0001-12345678-9');
+  assert.equal(m.ultimo().texto, '¿En qué banco recibirá tu destinatario?'); // sin número de cuenta de origen: es opcional en el backend
   assert.equal(m.ultimo().texto, '¿En qué banco recibirá tu destinatario?');
   assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Otro']);
   await m.tocar('BCP');
   await m.decir('191-1234567890');
-  assert.equal(m.ultimo().texto, '📋 *Resumen de tu operación*\n📤 Envías: 514.16 BRL desde Nubank ••6789\n📥 Recibe: 337.25 PEN en BCP ••7890\n📈 Tasa: 1 BRL = 0.6745 PEN\n\n¿Todo correcto?');
+  assert.equal(m.ultimo().texto, '📋 *Resumen de tu operación*\n📤 Envías: 514.16 BRL desde Nubank\n📥 Recibe: 337.25 PEN en BCP ••7890\n📈 Tasa: 1 BRL = 0.6745 PEN\n\n¿Todo correcto?');
   assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['confirmar', 'cambiar', 'cancelar']);
   assert.equal(m.falso.ordenes.size, 0); // todavía no se creó nada
 
@@ -46,7 +45,7 @@ test('cliente nuevo: de la cotización hasta que la orden queda en validación e
   assert.deepEqual(instr.opciones.map((o) => o.id), ['ya_transferi', 'cancelar']);
   const o = m.falso.ordenes.get('BR-0001');
   assert.deepEqual([o.channel, o.status, o.clientName, o.docType, o.docNumber, o.email, o.fundsSource], ['whatsapp', 'pending', 'Ana Paula Souza', 'CPF', '52998224725', 'ana@example.com', 'savings']);
-  assert.deepEqual([o.sourceBank, o.sourceAccount, o.destinationBank, o.destinationAccount], ['Nubank', '0001-12345678-9', 'BCP', '191-1234567890']);
+  assert.deepEqual([o.sourceBank, o.sourceAccount, o.destinationBank, o.destinationAccount], ['Nubank', undefined, 'BCP', '191-1234567890']);
 
   // Los datos personales ya no están en el estado de la conversación ni en el registro.
   const guardado = JSON.stringify(m.almacen.cargarEjecucion(T));
@@ -81,6 +80,8 @@ async function cerrarLaPrimera(m) {
 
 test('cliente que vuelve: confirma sus datos y elige sus cuentas guardadas de una lista', () => conMundo(async (m) => {
   await cerrarLaPrimera(m);
+  // La cuenta de origen es opcional, así que la orden anterior no la guardó; este cliente la tiene de antes (p. ej. de otro canal).
+  m.falso.clientes.get('uid001').accounts.push({ id: 'Nubank|0001-12345678-9', bank: 'Nubank', accountNumber: '0001-12345678-9', currency: 'BRL' });
   const n = m.proveedor.enviados.length;
   await m.decir('Hola, quiero enviar 500 reales a Perú');
   await m.tocar('continuar', 'Continuar');
@@ -97,6 +98,7 @@ test('cliente que vuelve: confirma sus datos y elige sus cuentas guardadas de un
   await m.tocar('acc:0', 'BCP ••7890');
   assert.match(m.ultimo().texto, /^📋 \*Resumen de tu operación\*\n📤 Envías: 514\.16 BRL desde Nubank ••6789\n📥 Recibe: 337\.25 PEN en BCP ••7890/);
   await m.tocar('confirmar', 'Confirmar');
+  assert.equal(m.falso.ordenes.get('BR-0002').sourceAccount, '0001-12345678-9'); // la cuenta guardada sí viaja al backend
   assert.equal(m.falso.ordenes.get('BR-0002').fundsSource, 'salary');
   assert.equal(m.falso.ordenes.get('BR-0002').clientName, 'Ana Paula Souza');
   assert.ok(m.proveedor.enviados.length > n);
@@ -109,7 +111,7 @@ test('cliente que vuelve y elige "Otra cuenta" para el destino: pide banco y nú
   await m.tocar('continuar', 'Continuar');
   await m.tocar('si_datos', 'Sí, es correcto');
   await m.tocar('savings', 'Ahorros');
-  await m.tocar('acc:0', 'Nubank ••6789');
+  await m.tocar('Nubank');
   await m.tocar('otra', 'Otra cuenta');
   assert.equal(m.ultimo().texto, '¿En qué banco recibirá tu destinatario?');
   await m.tocar('Otro');
@@ -130,7 +132,6 @@ test('si la cotización vence mientras el cliente completa los datos, se cotiza 
   await m.decir('ana@example.com');
   await m.tocar('savings', 'Ahorros');
   await m.tocar('Nubank');
-  await m.decir('0001-12345678-9');
   await m.tocar('BCP');
   await m.decir('191-1234567890');
   m.falso.avanzar(16);
@@ -170,7 +171,6 @@ test('datos inválidos para el backend: se repregunta solo el campo que rechazó
   await m.decir('ana@example.com');
   await m.tocar('savings', 'Ahorros');
   await m.tocar('Nubank');
-  await m.decir('0001-12345678-9');
   await m.tocar('BCP');
   await m.decir('191-1234567890');
   m.falso.fallar('/fn/createorder', { estado: 400, veces: 1, cuerpo: JSON.stringify({ error: { status: 'INVALID_ARGUMENT', message: 'invalid-input', details: [{ path: 'email', message: 'x' }] } }) });
@@ -206,7 +206,7 @@ test('E3: el número de operación duplicado se avisa y se puede corregir', () =
   await m.tocar('continuar', 'Continuar');
   await m.tocar('si_datos', 'Sí, es correcto');
   await m.tocar('savings', 'Ahorros');
-  await m.tocar('acc:0', 'Nubank ••6789');
+  await m.tocar('Nubank');
   await m.tocar('acc:0', 'BCP ••7890');
   await m.tocar('confirmar', 'Confirmar');
   await m.tocar('ya_transferi', 'Ya transferí');
@@ -272,7 +272,6 @@ test('si createOrder falla por red, la orden no se pierde ni se duplica: el sigu
   await m.decir('ana@example.com');
   await m.tocar('savings', 'Ahorros');
   await m.tocar('Nubank');
-  await m.decir('0001-12345678-9');
   await m.tocar('BCP');
   await m.decir('191-1234567890');
   m.falso.fallar('/fn/createorder', { estado: 502, veces: 1 });
@@ -347,10 +346,9 @@ test('texto libre con llaves de plantilla (nombre de banco) se muestra tal cual 
   await m.tocar('savings', 'Ahorros');
   await m.tocar('Otro');
   await m.decir('Banco {{vars.quote_id}} {{vars.api_action}}');
-  await m.decir('0001-12345678-9');
   await m.tocar('BCP');
   await m.decir('191-1234567890');
-  assert.match(m.ultimo().texto, /^📋 \*Resumen de tu operación\*\n📤 Envías: 514\.16 BRL desde Banco \{\{vars\.quote_id\}\} \{\{vars\.api_action\}\} ••6789/);
+  assert.match(m.ultimo().texto, /^📋 \*Resumen de tu operación\*\n📤 Envías: 514\.16 BRL desde Banco \{\{vars\.quote_id\}\} \{\{vars\.api_action\}\}\n/);
 }));
 
 test('E3: una foto enviada antes de tocar "Ya transferí" no sube nada ni avanza', () => conMundo(async (m) => {
@@ -377,12 +375,11 @@ test('sentido inverso PEN → BRL: bancos peruanos para enviar y brasileños par
   assert.equal(m.ultimo().texto, '¿Desde qué banco vas a transferir?');
   assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Otro']);
   await m.tocar('Interbank');
-  await m.decir('200-3012345678');
   assert.equal(m.ultimo().texto, '¿En qué banco recibirá tu destinatario?');
   assert.deepEqual(m.ultimo().opciones.map((o) => o.id), ['Banco do Brasil', 'Itaú', 'Bradesco', 'Nubank', 'Caixa', 'Otro']);
   await m.tocar('Nubank');
   await m.decir('0001-98765432-1');
-  assert.match(m.ultimo().texto, /^📋 \*Resumen de tu operación\*\n📤 Envías: [\d.]+ PEN desde Interbank ••5678\n📥 Recibe: [\d.]+ BRL en Nubank ••4321/);
+  assert.match(m.ultimo().texto, /^📋 \*Resumen de tu operación\*\n📤 Envías: [\d.]+ PEN desde Interbank\n📥 Recibe: [\d.]+ BRL en Nubank ••4321/);
   await m.tocar('confirmar', 'Confirmar');
   const o = m.falso.ordenes.get('BR-0001');
   assert.deepEqual([o.sendCurrency, o.receiveCurrency, o.docType, o.fundsSource, o.sourceBank, o.destinationBank], ['PEN', 'BRL', 'DNI', 'salary', 'Interbank', 'Nubank']);
@@ -446,4 +443,22 @@ test('"Cambiar monto" cotiza de nuevo con "Esta es tu nueva cotización", sin re
   assert.deepEqual(m.ultimo().opciones.map((o) => o.title), ['DNI (Perú)', 'CE (extranjería)', 'RUC (empresa)', 'CPF (Brasil)']);
   await m.tocar('CE');
   assert.equal(m.ultimo().texto, 'Escribe tu número de CE (9 a 12 caracteres).');
+}));
+
+test('cliente que vuelve sin cuentas de origen guardadas: elige solo el banco y la orden se crea sin número de cuenta de origen', () => conMundo(async (m) => {
+  await cerrarLaPrimera(m);
+  await m.decir('Hola, quiero enviar 500 reales a Perú');
+  await m.tocar('continuar', 'Continuar');
+  await m.tocar('si_datos', 'Sí, es correcto');
+  await m.tocar('salary', 'Sueldo');
+  assert.equal(m.ultimo().texto, '¿Desde qué banco vas a transferir?'); // no hay lista de cuentas de origen: la orden anterior no guardó ninguna
+  await m.tocar('Itaú');
+  assert.equal(m.ultimo().texto, '¿A qué cuenta recibirá tu destinatario?');
+  await m.tocar('acc:0', 'BCP ••7890');
+  assert.match(m.ultimo().texto, /Envías: 514\.16 BRL desde Itaú\n/);
+  await m.tocar('confirmar', 'Confirmar');
+  const o = m.falso.ordenes.get('BR-0002');
+  assert.deepEqual([o.sourceBank, o.sourceAccount], ['Itaú', undefined]);
+  const llamada = m.falso.llamadas.filter((l) => l.nombre === 'createOrder').at(-1);
+  assert.ok(!('sourceAccount' in llamada.data), 'no se manda sourceAccount vacío');
 }));

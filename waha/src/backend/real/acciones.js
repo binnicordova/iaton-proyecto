@@ -17,7 +17,7 @@ const TEXTO_ESTADO = {
 // Datos personales del cliente: se borran del estado de la conversación en cuanto el backend los guarda en su perfil.
 const SIN_DATOS_PERSONALES = {
   nombre: '', nombre_raw: '', doc_tipo: '', doc_num: '', doc_raw: '', correo: '', correo_raw: '', correo_masc: '',
-  origen_cuenta: '', origen_cuenta_raw: '', destino_cuenta: '', destino_cuenta_raw: '',
+  origen_cuenta: '', origen_cuenta_raw: '', origen_ult4_txt: '', destino_cuenta: '', destino_cuenta_raw: '',
   cuentas_perfil: [], cuentas_origen: [], cuentas_destino: [], opciones_origen: [], opciones_destino: [],
 };
 
@@ -130,10 +130,13 @@ function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, de
       const mt = /^acc:(\d+)$/.exec(id || '');
       const cuenta = mt && (vars[`cuentas_${arg}`] || [])[Number(mt[1])];
       if (cuenta) {
-        return { vars: reinicio(`cuenta_${arg}`, { [`${arg}_banco`]: cuenta.bank, [`${arg}_cuenta`]: cuenta.accountNumber, [`${arg}_ult4`]: V.ultimos4(cuenta.accountNumber) }), next_edge: 'elegida' };
+        return { vars: reinicio(`cuenta_${arg}`, { [`${arg}_banco`]: cuenta.bank, [`${arg}_cuenta`]: cuenta.accountNumber, [`${arg}_ult4`]: V.ultimos4(cuenta.accountNumber), [`${arg}_ult4_txt`]: ` ••${V.ultimos4(cuenta.accountNumber)}` }), next_edge: 'elegida' };
       }
       return fallo(vars, `cuenta_${arg}`);
     },
+
+    // La cuenta de origen se identifica solo por el banco: se limpia cualquier número de un intento anterior.
+    async sin_numero({ arg }) { return { vars: { [`${arg}_cuenta`]: '', [`${arg}_ult4`]: '', [`${arg}_ult4_txt`]: '' } }; },
 
     async banco_set({ vars, arg }) { return { vars: { [`${arg}_banco`]: vars[`${arg}_banco_sel`] } }; },
 
@@ -141,7 +144,8 @@ function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, de
     async order_create({ vars, phone, chatId }) {
       const datos = {
         quoteId: vars.quote_id, language: 'es', clientName: vars.nombre, docType: vars.doc_tipo, docNumber: vars.doc_num, email: vars.correo,
-        fundsSource: vars.fondos, sourceBank: vars.origen_banco, sourceAccount: vars.origen_cuenta,
+        fundsSource: vars.fondos, sourceBank: vars.origen_banco,
+        ...(vars.origen_cuenta ? { sourceAccount: vars.origen_cuenta } : {}), // el número de la cuenta de origen es opcional en el backend
         destinationBank: vars.destino_banco, destinationAccount: vars.destino_cuenta,
       };
       let orden;
@@ -186,7 +190,7 @@ function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, de
       const archivo = await descargarMedia({ chatId, mensajeId: m.whatsapp_message_id || m.id, mediaUrl: m.media_url, mimetype: m.mimetype });
       if (!archivo) return sinFoto();
       const tipo = String(archivo.mimetype || '').toLowerCase();
-      if (!(tipo.startsWith('image/') || tipo === 'application/pdf')) return sinFoto();
+      if (!['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'].includes(tipo)) return sinFoto();
       if (archivo.bytes.length >= MAX_COMPROBANTE_BYTES) return { vars: {}, next_edge: 'muy_grande' };
       try {
         const ruta = await storage.subir(phone, { ordenId: vars.operacion_id, nombre: `proof-${ahora().getTime()}.${extensionDe(tipo)}`, mimetype: tipo, bytes: archivo.bytes });

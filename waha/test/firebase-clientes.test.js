@@ -139,7 +139,7 @@ test('storage: sube a proofs/<uid>/<orden>/ y lo devuelve; rechaza tipos y lugar
 test('storage: extensión según el tipo del archivo', () => {
   assert.equal(extensionDe('image/jpeg'), 'jpg');
   assert.equal(extensionDe('image/png'), 'png');
-  assert.equal(extensionDe('image/webp'), 'webp');
+  assert.equal(extensionDe('image/webp'), 'bin'); // el backend solo acepta JPEG, PNG y PDF
   assert.equal(extensionDe('application/pdf'), 'pdf');
   assert.equal(extensionDe('video/mp4'), 'bin');
   assert.equal(extensionDe(undefined), 'bin');

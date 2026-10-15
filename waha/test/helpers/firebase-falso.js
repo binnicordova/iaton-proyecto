@@ -115,7 +115,8 @@ async function crearFirebaseFalso({ apiKey = 'CLAVE_PUBLICA_FALSA', bucket = 'ai
       if (!correoValido(d.email)) falta('email');
       if (!FONDOS.includes(d.fundsSource)) falta('fundsSource');
       for (const c of ['sourceBank', 'destinationBank']) if (typeof d[c] !== 'string' || !d[c].trim() || d[c].length > 60) falta(c);
-      for (const c of ['sourceAccount', 'destinationAccount']) if (!cuentaValida(d[c])) falta(c);
+      if (!cuentaValida(d.destinationAccount)) falta('destinationAccount');
+      if (d.sourceAccount !== undefined && !cuentaValida(d.sourceAccount)) falta('sourceAccount'); // opcional en el backend; si viene, debe ser válida
       if (detalles.length) throw negocio(400, 'INVALID_ARGUMENT', 'invalid-input', detalles);
       const q = cotizaciones.get(d.quoteId);
       if (!q || q.uid !== uid) throw negocio(404, 'NOT_FOUND', 'quote-not-found');
@@ -139,6 +140,7 @@ async function crearFirebaseFalso({ apiKey = 'CLAVE_PUBLICA_FALSA', bucket = 'ai
       const previo = clientes.get(uid) || { accounts: [] };
       const cuentas = new Map(previo.accounts.map((a) => [`${a.bank}|${a.accountNumber}`, a]));
       for (const [banco, numero, moneda] of [[d.sourceBank, d.sourceAccount, q.sendCurrency], [d.destinationBank, d.destinationAccount, q.receiveCurrency]]) {
+        if (!numero) continue; // sin número de cuenta no hay cuenta que guardar
         const clave = `${banco}|${numero}`;
         if (!cuentas.has(clave)) cuentas.set(clave, { id: clave, bank: banco, accountNumber: numero, currency: moneda });
       }

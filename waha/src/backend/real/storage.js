@@ -2,7 +2,8 @@
 // Las reglas del proyecto solo permiten crear en proofs/<uid>/<orden>/<archivo> (imagen o PDF, menos de 8 MB) y no modificar.
 const { pedir } = require('./http');
 
-const EXTENSIONES = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'application/pdf': 'pdf' };
+// Los tipos que acepta el backend (storage.rules): JPEG, PNG y PDF.
+const EXTENSIONES = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'application/pdf': 'pdf' };
 const extensionDe = (mimetype) => EXTENSIONES[String(mimetype || '').toLowerCase()] || 'bin';
 
 function crearStorage({ sesiones, config, fetchImpl = fetch, dormir }) {

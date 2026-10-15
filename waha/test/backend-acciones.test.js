@@ -213,6 +213,11 @@ test('proof_upload: sin foto, tipo no permitido o descarga fallida cuentan como 
   assert.equal((await m.llamar('proof_upload', v, { edges: EDGES_FOTO, wa: FOTO() })).next_edge, 'sin_foto');
   m.media.usar(async () => null);
   assert.equal((await m.llamar('proof_upload', v, { edges: EDGES_FOTO, wa: FOTO() })).next_edge, 'sin_foto');
+  // Solo JPEG, PNG y PDF: son los tipos que el backend acepta (webp o heic se rechazarían en Storage).
+  for (const tipo of ['image/webp', 'image/heic', 'image/gif']) {
+    m.media.usar(async () => ({ bytes: Buffer.from('x'), mimetype: tipo }));
+    assert.equal((await m.llamar('proof_upload', v, { edges: EDGES_FOTO, wa: FOTO() })).next_edge, 'sin_foto', tipo);
+  }
   assert.equal(m.falso.archivos.size, 0);
 }));
 
@@ -357,4 +362,9 @@ test('get_status: con la orden exportada (solo falta la factura) el cliente pued
   await conOrden(m);
   m.falso.ordenes.get('BR-0001').status = 'exported';
   assert.equal((await m.llamar('get_status', {}, { edges: E })).next_edge, 'e1');
+}));
+
+test('sin_numero: la cuenta de origen queda identificada solo por el banco y se limpia cualquier número anterior', () => conMundo(async (m) => {
+  const r = await m.llamar('sin_numero:origen', { origen_cuenta: '0001-12345678-9', origen_ult4: '6789', origen_ult4_txt: ' ••6789' });
+  assert.deepEqual(r.vars, { origen_cuenta: '', origen_ult4: '', origen_ult4_txt: '' });
 }));
