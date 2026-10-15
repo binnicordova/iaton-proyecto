@@ -45,7 +45,7 @@ test('cliente nuevo: de la cotización hasta que la orden queda en validación e
   assert.deepEqual(instr.opciones.map((o) => o.id), ['ya_transferi', 'cancelar']);
   const o = m.falso.ordenes.get('BR-0001');
   assert.deepEqual([o.channel, o.status, o.clientName, o.docType, o.docNumber, o.email, o.fundsSource], ['whatsapp', 'pending', 'Ana Paula Souza', 'CPF', '52998224725', 'ana@example.com', 'savings']);
-  assert.deepEqual([o.sourceBank, o.sourceAccount, o.destinationBank, o.destinationAccount], ['Nubank', undefined, 'BCP', '191-1234567890']);
+  assert.deepEqual([o.sourceBank, o.sourceAccount, o.destinationBank, o.destinationAccount], ['Nubank', '', 'BCP', '191-1234567890']);
 
   // Los datos personales ya no están en el estado de la conversación ni en el registro.
   const guardado = JSON.stringify(m.almacen.cargarEjecucion(T));
@@ -454,7 +454,7 @@ test('cliente que vuelve sin cuentas de origen guardadas: elige solo el banco y 
   assert.match(m.ultimo().texto, /Envías: 514\.16 BRL desde Itaú\n/);
   await m.tocar('confirmar', 'Confirmar');
   const o = m.falso.ordenes.get('BR-0002');
-  assert.deepEqual([o.sourceBank, o.sourceAccount], ['Itaú', undefined]);
+  assert.deepEqual([o.sourceBank, o.sourceAccount], ['Itaú', '']);
   const llamada = m.falso.llamadas.filter((l) => l.nombre === 'createOrder').at(-1);
   assert.ok(!('sourceAccount' in llamada.data), 'no se manda sourceAccount vacío');
 }));
