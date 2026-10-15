@@ -116,7 +116,7 @@ async function crearFirebaseFalso({ apiKey = 'CLAVE_PUBLICA_FALSA', bucket = 'ai
       if (!FONDOS.includes(d.fundsSource)) falta('fundsSource');
       for (const c of ['sourceBank', 'destinationBank']) if (typeof d[c] !== 'string' || !d[c].trim() || d[c].length > 60) falta(c);
       if (!cuentaValida(d.destinationAccount)) falta('destinationAccount');
-      if (d.sourceAccount !== undefined && !cuentaValida(d.sourceAccount)) falta('sourceAccount'); // opcional en el backend; si viene, debe ser válida
+      if (d.sourceAccount !== undefined && (typeof d.sourceAccount !== 'string' || d.sourceAccount.trim().length > 60)) falta('sourceAccount'); // opcional (por defecto ""), sin mínimo, máximo 60 caracteres, como el backend real
       if (detalles.length) throw negocio(400, 'INVALID_ARGUMENT', 'invalid-input', detalles);
       const q = cotizaciones.get(d.quoteId);
       if (!q || q.uid !== uid) throw negocio(404, 'NOT_FOUND', 'quote-not-found');
@@ -128,7 +128,7 @@ async function crearFirebaseFalso({ apiKey = 'CLAVE_PUBLICA_FALSA', bucket = 'ai
       const orden = {
         orderId, seq, uid, channel: q.channel, language: d.language || 'es', status: 'pending', createdAt: t.toISOString(), updatedAt: t.toISOString(),
         quoteId: q.id, clientName: d.clientName, docType: d.docType, docNumber: normalizarDocumento(d.docType, d.docNumber), email: d.email.toLowerCase(),
-        fundsSource: d.fundsSource, sourceBank: d.sourceBank, sourceAccount: d.sourceAccount, destinationBank: d.destinationBank, destinationAccount: d.destinationAccount,
+        fundsSource: d.fundsSource, sourceBank: d.sourceBank, sourceAccount: typeof d.sourceAccount === 'string' ? d.sourceAccount.trim() : '', destinationBank: d.destinationBank, destinationAccount: d.destinationAccount,
         sendAmount: q.sendAmount, sendCurrency: q.sendCurrency, receiveAmount: q.receiveAmount, receiveCurrency: q.receiveCurrency,
         rate: q.rate, marketRate: q.marketRate, commission: q.commission, tax: q.tax, total: q.total,
         rateLockedUntil: new Date(t.getTime() + PRECIOS.rateLockMinutes * 60_000).toISOString(), paymentAccount: CUENTAS_PAGO[q.sendCurrency],
@@ -139,7 +139,7 @@ async function crearFirebaseFalso({ apiKey = 'CLAVE_PUBLICA_FALSA', bucket = 'ai
       q.status = 'consumed'; q.orderId = orderId;
       const previo = clientes.get(uid) || { accounts: [] };
       const cuentas = new Map(previo.accounts.map((a) => [`${a.bank}|${a.accountNumber}`, a]));
-      for (const [banco, numero, moneda] of [[d.sourceBank, d.sourceAccount, q.sendCurrency], [d.destinationBank, d.destinationAccount, q.receiveCurrency]]) {
+      for (const [banco, numero, moneda] of [[d.sourceBank, (typeof d.sourceAccount === 'string' ? d.sourceAccount.trim() : ''), q.sendCurrency], [d.destinationBank, d.destinationAccount, q.receiveCurrency]]) {
         if (!numero) continue; // sin número de cuenta no hay cuenta que guardar
         const clave = `${banco}|${numero}`;
         if (!cuentas.has(clave)) cuentas.set(clave, { id: clave, bank: banco, accountNumber: numero, currency: moneda });
