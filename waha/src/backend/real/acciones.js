@@ -68,7 +68,7 @@ function campoDe(detalles) {
   return 'otro';
 }
 
-function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, descargarMedia, delegado, ahora = () => new Date(), registrar = () => {} }) {
+function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, descargarMedia, delegado, humano, ahora = () => new Date(), registrar = () => {} }) {
   const esNegocio = (e) => e instanceof ErrorBackend && !e.transporte;
   const kv = almacen.kvEnv();
 
@@ -231,30 +231,18 @@ function crearBackendReal({ funciones, firestore, storage, sesiones, almacen, de
       return { vars: { estado: 'cancelled' } };
     },
 
-    // "Hablar con persona": entra a la cola del backend con un resumen sin datos personales.
-    async handoff_to_human({ vars, phone, arg }) {
-      const partes = [`Cliente de WhatsApp pide ayuda (${arg || 'sin motivo'}).`];
-      if (vars.monto_txt) partes.push(`Cotización: ${vars.monto_txt} ${vars.moneda_origen} → ${vars.moneda_destino}.`);
-      if (vars.operacion_id) partes.push(`Operación ${vars.operacion_id}.`);
-      try {
-        const t = await funciones.llamar(phone, 'requestHuman', { summary: partes.join(' ').slice(0, 1500), orderId: vars.operacion_id || null, channel: 'whatsapp', language: 'es' });
-        await kv.put(`handoff:${phone}`, JSON.stringify({ handoffId: t.handoffId, motivo: arg || '' }));
-        return { vars: { cola_texto: `\nEstás en la posición ${t.position} de la cola (espera aproximada: ${t.estimatedWaitMinutes} min).` } };
-      } catch (e) {
-        if (!esNegocio(e)) throw e;
-        registrar({ tipo: 'error_backend', estado: String(e.estado || ''), detalle: `requestHuman:${e.codigo}` });
-        return { vars: { cola_texto: '' } };
-      }
+    // "Hablar con persona": el cliente pasa al WhatsApp humano de BrasPer (como en la app), con un mensaje ya escrito y sin datos personales.
+    // Ya no se abre un ticket: las funciones de cola del backend siguen desplegadas, pero nadie atiende esa cola.
+    async handoff_to_human({ vars, arg }) {
+      let mensaje = 'Hola, necesito ayuda con BrasPer.';
+      if (vars.operacion_id && arg === 'pago_no_validado') mensaje = `Hola, no se validó mi pago de la operación ${vars.operacion_id} y necesito ayuda.`;
+      else if (vars.operacion_id) mensaje = `Hola, necesito ayuda con mi operación ${vars.operacion_id}.`;
+      else if ((vars.monto_txt || vars.monto) && vars.moneda_origen && vars.moneda_destino) mensaje = `Hola, quiero enviar ${vars.monto_txt || vars.monto} ${vars.moneda_origen} a ${vars.moneda_destino} y necesito ayuda.`;
+      return { vars: { cola_texto: `\nEscríbenos aquí y te atiende una persona por WhatsApp:\nhttps://wa.me/${humano}?text=${encodeURIComponent(mensaje)}` } };
     },
 
-    // W0: ¿en qué punto está este cliente? Primero un ticket de persona abierto; luego su última orden.
+    // W0: ¿en qué punto está este cliente? Según su última orden.
     async get_status({ phone }) {
-      const marca = await kv.get(`handoff:${phone}`, 'json');
-      if (marca) {
-        const q = await funciones.llamar(phone, 'getQueueInfo', { handoffId: marca.handoffId }).catch((e) => { if (esNegocio(e)) return null; throw e; });
-        if (q && q.status !== 'closed') return { vars: {}, next_edge: 'escalada' };
-        await kv.delete(`handoff:${phone}`);
-      }
       const ultima = almacen.ordenesDe(phone)[0];
       if (!ultima) return { vars: { estado: 'sin_operacion' }, next_edge: 'e1' };
       const seg = almacen.seguimiento(ultima.ordenId);

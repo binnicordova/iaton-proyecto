@@ -61,14 +61,15 @@ Responde `{"iniciado":true}`. Si el cliente está en medio de una conversación 
 
 ## Backend real (Firebase)
 
-Con `BACKEND=real` el bot usa el backend del equipo (proyecto Firebase `aibrasper`: funciones `getRates`, `createQuote`, `createOrder`, `submitProof`, `requestHuman`, `getReceipt`…) en lugar de la API simulada. Con `BACKEND=simulado` (por defecto) todo sigue como antes: es el modo de respaldo para la demo.
+Con `BACKEND=real` el bot usa el backend del equipo (proyecto Firebase `aibrasper`: funciones `getRates`, `createQuote`, `createOrder`, `submitProof`, `getReceipt`…) en lugar de la API simulada. Con `BACKEND=simulado` (por defecto) todo sigue como antes: es el modo de respaldo para la demo.
 
 1. En `waha/.env`: `BACKEND=real` y `FIREBASE_API_KEY=<clave web pública de Firebase>` (la lleva cualquier app web del proyecto; `FIREBASE_PROJECT_ID` vale `aibrasper` por defecto). No hace falta ninguna clave de servicio.
 2. Cada cliente (por teléfono) recibe un usuario anónimo de Firebase; la sesión se guarda en SQLite (`sesiones_firebase`). `npm run demo:reset -- <teléfono> --cliente-nuevo` la olvida para repetir el recorrido de un cliente nuevo.
 3. `npm run contrato` repite contra el proyecto real las llamadas seguras (usuario anónimo, `getRates`, `createQuote`, lecturas que dan 403) y compara la forma con la del servidor falso de las pruebas. No crea órdenes y borra su usuario.
 4. `GET /health/backend` indica el modo y, en real, si `getRates` responde; `npm run preflight` lo incluye.
-5. El vigilante revisa cada ~20 s las órdenes abiertas (1 por minuto pasados 10 min; hasta 7 días): al aprobarse avisa al cliente, al rechazarse avisa el motivo y abre un ticket con una persona, y cuando la factura está aceptada envía el recibo en PDF real (`getReceipt`). Un aviso solo se marca como enviado si salió.
-6. Las órdenes de prueba creadas contra el proyecto real no se pueden borrar desde el bot (las reglas lo impiden); el repositorio del equipo tiene `functions/scripts/reset-test-data.mjs`.
+5. El vigilante revisa cada ~20 s las órdenes abiertas (1 por minuto pasados 10 min; hasta 7 días): al aprobarse avisa al cliente, al rechazarse avisa el motivo y da el enlace al WhatsApp humano, y cuando la factura está aceptada envía el recibo en PDF real (`getReceipt`). Un aviso solo se marca como enviado si salió.
+6. **Hablar con persona:** el bot no abre tickets (la cola del backend, `requestHuman`, sigue desplegada pero nadie la atiende). Da un enlace `wa.me` al WhatsApp humano de BrasPer (`WHATSAPP_HUMANO`, por defecto `51966991933`) con un mensaje ya escrito que menciona la operación o la cotización, sin datos personales.
+7. Las órdenes de prueba creadas contra el proyecto real no se pueden borrar desde el bot (las reglas lo impiden); el repositorio del equipo tiene `functions/scripts/reset-test-data.mjs`.
 
 Privacidad: el nombre, documento, correo y cuentas del cliente solo viajan a Firebase; en SQLite y en el registro quedan el teléfono enmascarado, los ids y los últimos 4 dígitos. El comprobante PDF propio y `COMPROBANTE_ENTREGA` solo se usan en modo simulado.
 

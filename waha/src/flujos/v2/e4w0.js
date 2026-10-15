@@ -12,7 +12,7 @@ function e4() {
   // El ticket se abre antes de escribir al cliente: si la red falla, no se manda un rechazo a medias y el vigilante reintenta todo junto.
   f.api('rech_reg', 'handoff_to_human:pago_no_validado');
   f.text('rech', 'Lo sentimos 😕 No pudimos validar tu pago de la operación {{vars.operacion_id}}.\nMotivo: {{vars.motivo}}');
-  f.text('rech_msg', 'Una persona del equipo te contactará.{{vars.cola_texto}}');
+  f.text('rech_msg', 'Una persona del equipo puede ayudarte con esto.{{vars.cola_texto}}');
   f.handoff('rech_fin');
   f.setvar('nada', 'evento_ignorado', 'si');
   f.link('ev', 'aprobada', 'aprobada').link('ev', 'rech_reg', 'rechazada').link('ev', 'nada', 'otro');
@@ -23,7 +23,7 @@ function e4() {
 function w0() {
   const f = new Flow('W0', 'BrasPer · W0 Enrutador (v2)', 'brasper-v2-w0-enrutador', 'Enruta cada conversación nueva a la etapa que corresponde según el estado de la orden.');
   f.start();
-  f.api('estado', 'get_status', { edges: ['e1', 'e3', 'estado', 'escalada'] });
+  f.api('estado', 'get_status', { edges: ['e1', 'e3', 'estado'] });
   f.link('start', 'estado');
   f.call('c1', 'E1').api('sigue1', 'check_continue', { edges: ['seguir', 'fin'] });
   f.call('c2', 'E2').api('sigue2', 'check_continue', { edges: ['seguir', 'fin'] });
@@ -38,8 +38,6 @@ function w0() {
   f.agent('w_ext', AGENTE_EXTRACCION);
   f.api('w_chk', 'check_extraction', { edges: ['completa', 'incompleta'] });
   f.link('estado', 'w_ext', 'estado').link('w_ext', 'w_chk').link('w_chk', 'c1', 'completa').link('w_chk', 'status', 'incompleta');
-  f.text('esc', 'Una persona del equipo ya está atendiendo tu caso.');
-  f.link('estado', 'esc', 'escalada');
   return f;
 }
 

@@ -52,3 +52,9 @@ test('BACKEND vale simulado por defecto, acepta real y rechaza otros valores', (
   assert.equal(cargarConfig({ ...BASE, BACKEND: 'real' }).backend, 'real');
   assert.throws(() => cargarConfig({ ...BASE, BACKEND: 'firebase' }), /real o simulado/);
 });
+
+test('WHATSAPP_HUMANO: número del equipo humano (por defecto el de BrasPer) solo con dígitos', () => {
+  assert.equal(cargarConfig(BASE).whatsappHumano, '51966991933');
+  assert.equal(cargarConfig({ ...BASE, WHATSAPP_HUMANO: '+51 999 000 111' }).whatsappHumano, '51999000111');
+  assert.throws(() => cargarConfig({ ...BASE, WHATSAPP_HUMANO: 'abc' }), /WHATSAPP_HUMANO/);
+});

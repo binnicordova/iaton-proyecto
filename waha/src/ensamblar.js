@@ -14,7 +14,7 @@ function ensamblar({ config, entorno = process.env, almacen, proveedor, extraer,
   const real = config.backend === 'real';
   const registrar = (e) => almacen.registrar(e);
   const backend = crearBackend({
-    modo: config.backend, almacen, entorno, configReal: real ? configBackend(entorno) : undefined, fetchImpl, descargarMedia, ahora, registrar, dormir,
+    modo: config.backend, humano: config.whatsappHumano, almacen, entorno, configReal: real ? configBackend(entorno) : undefined, fetchImpl, descargarMedia, ahora, registrar, dormir,
   });
   const motor = crearMotor({ flujos: real ? cargarFlujosV2() : cargarFlujos(), almacen, proveedor, llamarFuncion: backend.llamarFuncion, extraer });
   const saludBackend = real ? () => backend.funciones.llamar(TELEFONO_SALUD, 'getRates', {}) : undefined;
